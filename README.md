@@ -7,7 +7,7 @@ A minimalist, offline water reminder and hydration tracker for Samsung Galaxy Wa
 **Cloud builds:** [Wear OS APK](https://github.com/luisfelipealves/aquaticks/actions/workflows/android.yml)
 
 The MVP checkpoint passed 18 tests, lint and debug APK assembly in [run #7](https://github.com/luisfelipealves/aquaticks/actions/runs/39478249519).
-The second milestone adds history, alternative amounts and a watch-face complication.
+The full-feature checkpoint passed 24 tests, lint and APK assembly in [run #9](https://github.com/luisfelipealves/aquaticks/actions/runs/39479832595), including history, alternative amounts and a watch-face complication. Use the latest successful run on the PR for the final follow-up.
 Physical watch acceptance is still pending; main is intentionally not merged yet.
 
 ## Features

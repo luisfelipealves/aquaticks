@@ -39,7 +39,7 @@ Official instructions: https://developer.android.com/training/wearables/get-star
 
 This builds entirely in the cloud. ADB here is only for installation.
 The debug keystore is cached by Actions to support test upgrades. A cache reset can
-change the signature; do not uninstall an existing installation merely to solve a
+change the signature. GitHub caches are scoped, so builds from a pull request and main may also use different debug keys; do not uninstall an existing installation merely to solve a
 signature mismatch if you want to preserve its local history.
 
 ## Watch acceptance checklist

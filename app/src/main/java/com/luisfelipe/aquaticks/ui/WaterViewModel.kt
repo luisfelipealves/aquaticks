@@ -45,9 +45,12 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val added = repository.add(amount, operationId)
                 day.value = repository.today()
-                app.refreshSurfaces()
-                app.reminders.reconcile()
                 if (added) _message.value = "Boa!\n+$amount ml registrados"
+                // A UI/system refresh failure must never turn a committed intake into "not saved".
+                runCatching {
+                    app.refreshSurfaces()
+                    app.reminders.reconcile()
+                }.onFailure { android.util.Log.e("AquaTicks", "Water saved; surface refresh failed", it) }
             } catch (_: Exception) { _message.value = "Não foi possível salvar. Tente novamente." }
             finally { _busy.value = false }
         }
