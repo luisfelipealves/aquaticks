@@ -62,3 +62,12 @@ signature mismatch if you want to preserve its local history.
 Watch-only battery, OS scheduling, haptic strength and exact circular clipping have
 not been validated by a JVM build. Debug builds are for testing, not Play distribution.
 Turn off wireless debugging after installation when you no longer need it.
+
+## History, doses and complication (second milestone)
+- Use Outra quantidade to add 100/200/250/300/500 ml without changing the default.
+- In Configurações > Dose padrão, choose the single-tap amount for home and reminders.
+- Open Histórico, use Dia controls and confirm totals, goals, chart and record times.
+- On the watch face, long-press > Customize > Complications and choose AquaTicks
+  in a compatible short-text or ranged-value slot.
+- Record water and confirm the complication refreshes. Tap it to open AquaTicks.
+- Check its new-day behavior. Appearance and update timing depend on the watch face.

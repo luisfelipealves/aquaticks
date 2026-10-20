@@ -123,7 +123,28 @@ fun AquaTicksScreen(model: WaterViewModel) {
                             Action("+${snapshot!!.settings.defaultMl} ml", primary = true, enabled = !busy) {
                                 model.add(snapshot!!.settings.defaultMl)
                             }
+                            Action("Outra quantidade") { screen = "amount" }
+                            Action("Histórico") { screen = "history" }
                             Action("Configurações") { screen = "settings" }
+                    }
+                    "history" -> HistoryScreen(model) { screen = "home" }
+                    "amount" -> ScrollPage("amount") {
+                        PageTitle("Registrar água") { screen = "home" }
+                        for (amount in WaterRules.amounts) {
+                            Action("+$amount ml", enabled = !busy) {
+                                model.add(amount)
+                                screen = "home"
+                            }
+                        }
+                    }
+                    "dose" -> ScrollPage("dose") {
+                        PageTitle("Dose padrão") { screen = "settings" }
+                        for (amount in WaterRules.amounts) {
+                            Action("${if (snapshot!!.settings.defaultMl == amount) "✓ " else ""}$amount ml",
+                                primary = snapshot!!.settings.defaultMl == amount) {
+                                model.update { it.copy(defaultMl = amount) }
+                            }
+                        }
                     }
                     "settings" -> ScrollPage("settings") {
                         PageTitle("Configurações") { screen = "home" }
@@ -151,6 +172,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
                         }
                         Action("A cada ${settings.intervalHours} h") { screen = "interval" }
                         Action("Horário silencioso") { screen = "quiet" }
+                        Action("Dose padrão: ${settings.defaultMl} ml") { screen = "dose" }
                     }
                     "interval" -> ScrollPage("interval") {
                         PageTitle("Intervalo") { screen = "settings" }
