@@ -7,7 +7,7 @@
 4. Extract the ZIP; the installable file is `app-debug.apk`.
 5. Reports are in `aquaticks-reports-N`. An artifact from a failed build is not a validated release.
 
-The workflow triggers on branch pushes and pull requests. After the workflow reaches main,
+The workflow triggers on pushes to main and on pull requests. After the workflow reaches main,
 **Run workflow** can also launch it manually and select a branch.
 No development secrets are required.
 
