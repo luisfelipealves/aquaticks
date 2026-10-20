@@ -12,7 +12,7 @@ Physical watch acceptance is still pending; main is intentionally not merged yet
 
 ## Features
 - Black background, blue progress ring, white/gray text and a water-drop icon.
-- One tap to record the default 250 ml; other common amounts: 100/200/250/300/500 ml.
+- Tap the large progress ring once to record the default 250 ml; other common amounts: 100/200/250/300/500 ml.
 - Adjustable daily goal, initially 2,000 ml; no medical recommendation or automatic goal.
 - Reminders every 1/2/3/4 hours, configurable quiet hours and a direct notification action.
 - Daily history, per-day goals, a simple time-of-day chart and individual records.

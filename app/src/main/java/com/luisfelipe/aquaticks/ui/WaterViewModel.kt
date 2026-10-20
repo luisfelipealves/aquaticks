@@ -20,6 +20,9 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
     private val day = MutableStateFlow(repository.today())
     val snapshot: StateFlow<DaySnapshot?> = day.flatMapLatest(repository::observe)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    private val _homeRequests = MutableStateFlow(0)
+    val homeRequests = _homeRequests.asStateFlow()
+    fun openHome() { _homeRequests.value++; refresh() }
     private val _busy = MutableStateFlow(false)
     val busy = _busy.asStateFlow()
     private val _message = MutableStateFlow<String?>(null)

@@ -9,6 +9,9 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.background
@@ -64,6 +67,8 @@ fun AquaTicksScreen(model: WaterViewModel) {
     val busy by model.busy.collectAsStateWithLifecycle()
     val message by model.message.collectAsStateWithLifecycle()
     var screen by remember { mutableStateOf("home") }
+    val homeRequest by model.homeRequests.collectAsStateWithLifecycle()
+    LaunchedEffect(homeRequest) { screen = "home" }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
     var clockRevision by remember { mutableIntStateOf(0) }
@@ -113,14 +118,13 @@ fun AquaTicksScreen(model: WaterViewModel) {
     BackHandler(screen != "home") { screen = "home" }
     MaterialTheme {
         BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-            val ringSize = minOf(maxWidth * .68f, maxHeight * .54f)
+            val ringSize = minOf(maxWidth * .80f, maxHeight * .80f)
             if (snapshot == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("AquaTicks", color = Gray) }
             } else {
                 when (screen) {
                     "home" -> ScrollPage("home") {
-                            HomeRing(snapshot!!, ringSize)
-                            Action("+${snapshot!!.settings.defaultMl} ml", primary = true, enabled = !busy) {
+                            HomeRing(snapshot!!, ringSize, !busy) {
                                 model.add(snapshot!!.settings.defaultMl)
                             }
                             Action("Outra quantidade") { screen = "amount" }
@@ -236,9 +240,10 @@ internal fun ScrollPage(key: String, content: @Composable ColumnScope.() -> Unit
     )
 }
 @Composable
-internal fun Action(label: String, primary: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun Action(label: String, primary: Boolean = false, enabled: Boolean = true,
+    description: String = label, onClick: () -> Unit) {
     Button(onClick = onClick, enabled = enabled,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = description },
         colors = ButtonDefaults.buttonColors(containerColor = if (primary) Blue else Surface,
             contentColor = if (primary) Color.Black else Color.White),
         label = { Text(label, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) })
@@ -254,8 +259,8 @@ internal fun GoalControl(goal: Int, change: (Int) -> Unit) {
     Text("Meta diária", color = Gray, fontSize = 15.sp)
     Text("${formatMl(goal)} ml", color = Color.White, fontSize = 23.sp)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.weight(1f)) { Action("−", enabled = goal > WaterRules.MIN_GOAL) { change(-250) } }
-        Box(Modifier.weight(1f)) { Action("+", enabled = goal < WaterRules.MAX_GOAL) { change(250) } }
+        Box(Modifier.weight(1f)) { Action("−", enabled = goal > WaterRules.MIN_GOAL, description = "Diminuir meta em 250 mililitros") { change(-250) } }
+        Box(Modifier.weight(1f)) { Action("+", enabled = goal < WaterRules.MAX_GOAL, description = "Aumentar meta em 250 mililitros") { change(250) } }
     }
 }
 @Composable
@@ -268,8 +273,12 @@ internal fun TimeControl(label: String, minutes: Int, change: (Int) -> Unit) {
     }
 }
 @Composable
-internal fun HomeRing(snapshot: DaySnapshot, size: Dp) {
-    Box(Modifier.size(size).semantics(mergeDescendants = true) {
+internal fun HomeRing(snapshot: DaySnapshot, size: Dp, enabled: Boolean, onAdd: () -> Unit) {
+    val animatedProgress by animateFloatAsState(snapshot.progress, tween(300), label = "daily_progress")
+    Box(Modifier.size(size).clip(CircleShape)
+        .clickable(enabled = enabled, role = Role.Button,
+            onClickLabel = "Registrar ${snapshot.settings.defaultMl} mililitros", onClick = onAdd)
+        .semantics(mergeDescendants = true) {
         contentDescription = "${snapshot.totalMl} de ${snapshot.goalMl} mililitros. ${(snapshot.progress * 100).toInt()} por cento."
         progressBarRangeInfo = ProgressBarRangeInfo(snapshot.progress, 0f..1f)
     }, contentAlignment = Alignment.Center) {
@@ -279,7 +288,7 @@ internal fun HomeRing(snapshot: DaySnapshot, size: Dp) {
             val offset = Offset((this.size.width - diameter) / 2, (this.size.height - diameter) / 2)
             drawArc(Color(0xFF18212D), -90f, 360f, false, offset,
                 Size(diameter, diameter), style = Stroke(stroke, cap = StrokeCap.Round))
-            if (snapshot.progress > 0f) drawArc(Blue, -90f, snapshot.progress * 360f, false,
+            if (animatedProgress > 0f) drawArc(Blue, -90f, animatedProgress * 360f, false,
                 offset, Size(diameter, diameter), style = Stroke(stroke, cap = StrokeCap.Round))
         }
         Column(Modifier.padding(13.dp).clearAndSetSemantics {}, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -288,6 +297,8 @@ internal fun HomeRing(snapshot: DaySnapshot, size: Dp) {
             Text("${formatMl(snapshot.totalMl)} ml", color = Color.White, fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
             Text("de ${formatMl(snapshot.goalMl)} ml", color = Gray, fontSize = 12.sp)
+            Text("+${snapshot.settings.defaultMl} ml", color = Blue, fontSize = 15.sp,
+                fontWeight = FontWeight.Medium)
         }
     }
 }

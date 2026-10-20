@@ -62,7 +62,7 @@ private fun IntakeBars(entries: List<Intake>) {
             }
         }
     }
-    val description = amounts.mapIndexedNotNull { i, amount ->
+    val description = amounts.toList().mapIndexedNotNull { i, amount ->
         if (amount > 0) "${i * 2} horas: $amount mililitros" else null
     }.joinToString(". ").ifEmpty { "Nenhum consumo registrado" }
     Canvas(Modifier.fillMaxWidth().height(36.dp).semantics { contentDescription = description }) {

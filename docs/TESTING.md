@@ -43,8 +43,8 @@ change the signature; do not uninstall an existing installation merely to solve 
 signature mismatch if you want to preserve its local history.
 
 ## Watch acceptance checklist
-- Launch AquaTicks and confirm a black screen, blue ring, readable numbers and a +250 ml action.
-- Tap +250 ml once: one record, progress increase, brief "Boa!" confirmation.
+- Launch AquaTicks and confirm a black screen, blue ring, readable numbers and a +250 ml action inside the ring.
+- Tap the large progress ring (+250 ml) once: one record, progress increase, brief "Boa!" confirmation.
 - Exit/reopen: the amount remains. Reboot: amount and settings remain.
 - Change the daily goal with +/−. Yesterday's goal must remain unchanged.
 - Enable notifications/reminders; choose 1/2/3/4 hours and quiet hours.
