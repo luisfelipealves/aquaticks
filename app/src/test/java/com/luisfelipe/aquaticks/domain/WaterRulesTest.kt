@@ -9,11 +9,11 @@ class WaterRulesTest {
     private val lisbon = ZoneId.of("Europe/Lisbon")
     private fun local(text: String) = java.time.LocalDateTime.parse(text).atZone(lisbon)
     @Test fun progressIsClamped() {
-        assertEquals(0f, WaterRules.progress(0, 2000))
-        assertEquals(.375f, WaterRules.progress(750, 2000))
-        assertEquals(1f, WaterRules.progress(2500, 2000))
-        assertEquals(0f, WaterRules.progress(-20, 2000))
-        assertEquals(0f, WaterRules.progress(100, 0))
+        assertEquals(0f, WaterRules.progress(0, 2000), 0.0001f)
+        assertEquals(.375f, WaterRules.progress(750, 2000), 0.0001f)
+        assertEquals(1f, WaterRules.progress(2500, 2000), 0.0001f)
+        assertEquals(0f, WaterRules.progress(-20, 2000), 0.0001f)
+        assertEquals(0f, WaterRules.progress(100, 0), 0.0001f)
     }
     @Test fun overnightQuietHoursIncludeStartExcludeEnd() {
         for (time in listOf("2026-10-20T22:00", "2026-10-21T00:00", "2026-10-21T07:59"))
