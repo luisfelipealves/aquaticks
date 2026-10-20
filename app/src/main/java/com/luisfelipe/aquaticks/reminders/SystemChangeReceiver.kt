@@ -17,7 +17,7 @@ class SystemChangeReceiver : BroadcastReceiver() {
             try {
                 withTimeout(8000) {
                     context.aquaApp.repository.ensureToday()
-                    context.aquaApp.reminders.reconcile()
+                    context.aquaApp.reminders.reconcile(force = intent.action == Intent.ACTION_TIMEZONE_CHANGED || intent.action == Intent.ACTION_TIME_CHANGED)
                     context.refreshSurfaces()
                 }
             } catch (error: Exception) {

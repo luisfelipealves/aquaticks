@@ -12,7 +12,8 @@ data class Settings(
     val intervalHours: Int = 2,
     val quietEnabled: Boolean = true,
     val quietStart: Int = 1320,
-    val quietEnd: Int = 480
+    val quietEnd: Int = 480,
+    val nextReminderAt: Long = 0
 )
 @Entity(tableName = "intakes", indices = [Index("localDate")])
 data class Intake(

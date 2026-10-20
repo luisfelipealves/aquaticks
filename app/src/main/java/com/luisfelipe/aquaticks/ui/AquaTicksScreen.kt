@@ -66,6 +66,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
     var screen by remember { mutableStateOf("home") }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current
+    var clockRevision by remember { mutableIntStateOf(0) }
     var notificationAllowed by remember { mutableStateOf(context.aquaApp.reminders.allowed()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         notificationAllowed = granted
@@ -76,12 +77,13 @@ fun AquaTicksScreen(model: WaterViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 model.refresh()
+                clockRevision++
                 notificationAllowed = context.aquaApp.reminders.allowed()
             }
         }
         lifecycle.lifecycle.addObserver(observer)
         val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) { model.refresh() }
+            override fun onReceive(ctx: Context?, intent: Intent?) { clockRevision++; model.refresh() }
         }
         ContextCompat.registerReceiver(context, receiver, IntentFilter().apply {
             addAction(Intent.ACTION_DATE_CHANGED)
@@ -95,7 +97,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
     }
     // One timer while the UI is active, never a background polling loop.
     val active by lifecycle.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
-    LaunchedEffect(snapshot?.day, active) {
+    LaunchedEffect(snapshot?.day, active, clockRevision) {
         if (active.isAtLeast(Lifecycle.State.RESUMED)) {
             delay(WaterRules.untilMidnight(Instant.now(), ZoneId.systemDefault()) + 50)
             model.refresh()
@@ -143,6 +145,10 @@ fun AquaTicksScreen(model: WaterViewModel) {
                         if (!notificationAllowed) Text(
                             "Permita notificações para receber lembretes.", color = Gray,
                             textAlign = TextAlign.Center, fontSize = 13.sp)
+                        if (!notificationAllowed) Action("Permissão de notificações") {
+                            context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
+                        }
                         Action("A cada ${settings.intervalHours} h") { screen = "interval" }
                         Action("Horário silencioso") { screen = "quiet" }
                     }

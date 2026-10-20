@@ -91,6 +91,17 @@ class WaterRepositoryTest {
         assertEquals(0, repository.snapshot().totalMl)
         assertEquals(2, repository.settings().intervalHours)
     }
+    @Test fun changingReminderConfigInvalidatesSavedSchedule() = runBlocking {
+        repository.update { it.copy(remindersEnabled = true, nextReminderAt = 1000) }
+        repository.update { it.copy(nextReminderAt = 123456789) }
+        repository.update { it.copy(goalMl = 3000) }
+        assertEquals(123456789L, repository.settings().nextReminderAt)
+        repository.update { it.copy(intervalHours = 4) }
+        assertEquals(0L, repository.settings().nextReminderAt)
+        repository.update { it.copy(nextReminderAt = 123456789) }
+        repository.update { it.copy(remindersEnabled = false) }
+        assertEquals(0L, repository.settings().nextReminderAt)
+    }
     private class MovingClock(var current: Instant) : Clock() {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId): Clock = this

@@ -59,7 +59,12 @@ class WaterRepository(
     }
     suspend fun update(transform: (Settings) -> Settings) = db.withTransaction {
         val previous = settings()
-        val updated = transform(previous).copy(id = 0)
+        var updated = transform(previous).copy(id = 0)
+        val scheduleChanged = previous.remindersEnabled != updated.remindersEnabled ||
+            previous.intervalHours != updated.intervalHours ||
+            previous.quietEnabled != updated.quietEnabled ||
+            previous.quietStart != updated.quietStart || previous.quietEnd != updated.quietEnd
+        if (scheduleChanged) updated = updated.copy(nextReminderAt = 0)
         require(updated.goalMl in WaterRules.MIN_GOAL..WaterRules.MAX_GOAL)
         require(updated.defaultMl in WaterRules.amounts)
         require(updated.intervalHours in WaterRules.intervals)

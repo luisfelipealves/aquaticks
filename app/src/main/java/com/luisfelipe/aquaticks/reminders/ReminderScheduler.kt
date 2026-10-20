@@ -38,7 +38,7 @@ class ReminderScheduler(private val context: Context, private val repository: Wa
         return granted && NotificationManagerCompat.from(context).areNotificationsEnabled() &&
             channel?.importance != NotificationManager.IMPORTANCE_NONE
     }
-    suspend fun reconcile() = lock.withLock {
+    suspend fun reconcile(force: Boolean = false) = lock.withLock {
         createChannel()
         val pending = PendingIntent.getBroadcast(context, 10,
             Intent(context, WaterActionReceiver::class.java).setAction(ACTION_REMIND),
@@ -55,8 +55,14 @@ class ReminderScheduler(private val context: Context, private val repository: Wa
                 settings.quietStart, settings.quietEnd)) {
             NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
         }
-        val due = WaterRules.nextReminder(now, zone, settings.intervalHours,
+        val saved = Instant.ofEpochMilli(settings.nextReminderAt)
+        val due = if (!force && saved > now &&
+            !WaterRules.quiet(saved.atZone(zone), settings.quietEnabled, settings.quietStart, settings.quietEnd)) saved
+        else WaterRules.nextReminder(now, zone, settings.intervalHours,
             settings.quietEnabled, settings.quietStart, settings.quietEnd)
+        if (settings.nextReminderAt != due.toEpochMilli()) {
+            repository.update { it.copy(nextReminderAt = due.toEpochMilli()) }
+        }
         // One inexact alarm. Android may batch/delay it; no exact-alarm permission.
         alarms.setWindow(AlarmManager.RTC_WAKEUP, due.toEpochMilli(), 10 * 60 * 1000L, pending)
     }
