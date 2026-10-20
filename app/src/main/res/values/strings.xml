@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">AquaTicks</string>
+    <string name="tile_label">Água</string>
+    <string name="tile_description">Progresso diário e registro rápido de água</string>
+</resources>
