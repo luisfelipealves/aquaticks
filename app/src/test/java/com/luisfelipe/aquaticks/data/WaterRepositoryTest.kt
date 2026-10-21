@@ -9,6 +9,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -83,6 +84,26 @@ class WaterRepositoryTest {
         repository.update { it.copy(goalMl = 3000) }
         assertEquals(2000, repository.snapshot(yesterday).goalMl)
         assertEquals(3000, repository.snapshot().goalMl)
+    }
+    @Test fun missingHistoricalGoalDoesNotBorrowCurrentSetting() = runBlocking {
+        val yesterday = repository.today().minusDays(1)
+        assertEquals(0, repository.snapshot(yesterday).goalMl)
+        assertEquals(0, repository.observe(yesterday).first().goalMl)
+        repository.update { it.copy(goalMl = 3000) }
+        assertEquals(0, repository.snapshot(yesterday).goalMl)
+        assertEquals(0, repository.observe(yesterday).first().goalMl)
+        assertEquals(3000, repository.snapshot().goalMl)
+    }
+    @Test fun savedGoalWithoutIntakesSurvivesGoalEditAndReopening() = runBlocking {
+        repository.ensureToday()
+        val yesterday = repository.today()
+        clock.current = Instant.parse("2026-10-21T12:00:00Z")
+        repository.update { it.copy(goalMl = 3000) }
+        db.close()
+        open()
+        assertEquals(2000, repository.snapshot(yesterday).goalMl)
+        assertEquals(2000, repository.observe(yesterday).first().goalMl)
+        assertEquals(0, repository.snapshot(yesterday).totalMl)
     }
     @Test fun invalidIntakeAndSettingsAreRejectedWithoutWriting() = runBlocking {
         try { repository.add(-250); fail("Expected invalid amount") } catch (_: IllegalArgumentException) {}
