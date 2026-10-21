@@ -46,7 +46,7 @@ class WaterComplicationServiceTest {
                 assertEquals(2, delivered.timelineEntries!!.size)
                 assertEquals(type.toWireComplicationType(), delivered.type)
                 assertEquals(250f, if (type == ComplicationType.RANGED_VALUE) delivered.rangedValue else 250f, .001f)
-                assertEquals("250ml", delivered.shortText!!.getTextAt(service, System.currentTimeMillis()).toString())
+                assertEquals("250ml", delivered.shortText!!.getTextAt(service.resources, System.currentTimeMillis()).toString())
                 assertNotNull(delivered.tapAction)
             } finally { parcel.recycle() }
         } finally { controller.destroy() }
