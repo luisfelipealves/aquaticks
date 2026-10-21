@@ -3,7 +3,6 @@ package com.luisfelipe.aquaticks.complication
 import android.os.Parcel
 import android.support.wearable.complications.ComplicationData as WireData
 import androidx.wear.watchface.complications.data.ComplicationType
-import androidx.wear.watchface.complications.datasource.ComplicationDataTimeline
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import com.luisfelipe.aquaticks.AquaTicksApp
 import com.luisfelipe.aquaticks.aquaApp
@@ -29,10 +28,7 @@ class WaterComplicationServiceTest {
             service.aquaApp.repository.add(250, "complication-test")
             val timeline = requireNotNull(service.onComplicationRequest(ComplicationRequest(1, type, false)))
             // Use the library's real timeline encoder, not just our data builder.
-            val encode = ComplicationDataTimeline::class.java.declaredMethods.single {
-                it.name.startsWith("asWireComplicationData") && it.parameterCount == 0
-            }
-            val wire = encode.invoke(timeline) as WireData
+            val wire = TimelineEncoder.encode(timeline)
             val entries = requireNotNull(wire.timelineEntries)
             assertEquals(2, entries.size)
             // Check before parceling: a cycle would recurse indefinitely in Binder serialization.
