@@ -12,10 +12,12 @@ import kotlinx.coroutines.flow.combine
 data class DaySnapshot(
     val day: LocalDate,
     val settings: Settings,
+    /** Zero means no goal was recorded for this historical date. Never written to settings. */
     val goalMl: Int,
     val intakes: List<Intake>
 ) {
     val totalMl: Int get() = intakes.sumOf { it.amountMl }
+    val hasGoal: Boolean get() = goalMl > 0
     val progress: Float get() = WaterRules.progress(totalMl, goalMl)
 }
 class WaterRepository(
@@ -37,13 +39,15 @@ class WaterRepository(
         dao.watchSettings(), dao.watchGoal(day.toString()), dao.watchIntakes(day.toString())
     ) { prefs, goal, entries ->
         val settings = prefs ?: Settings()
-        DaySnapshot(day, settings, goal?.goalMl ?: settings.goalMl, entries)
+        DaySnapshot(day, settings, goalFor(day, goal, settings), entries)
     }
     suspend fun snapshot(day: LocalDate = today()): DaySnapshot = db.withTransaction {
         val settings = settings()
-        DaySnapshot(day, settings, dao.goal(day.toString())?.goalMl ?: settings.goalMl,
+        DaySnapshot(day, settings, goalFor(day, dao.goal(day.toString()), settings),
             dao.intakes(day.toString()))
     }
+    private fun goalFor(day: LocalDate, saved: DailyGoal?, settings: Settings): Int =
+        saved?.goalMl ?: if (day == today()) settings.goalMl else 0
     suspend fun add(amount: Int, operationId: String = UUID.randomUUID().toString()): Boolean {
         require(amount in WaterRules.amounts) { "Unsupported water amount" }
         require(operationId.isNotBlank())

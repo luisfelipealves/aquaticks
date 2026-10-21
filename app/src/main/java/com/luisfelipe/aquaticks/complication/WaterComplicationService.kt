@@ -21,7 +21,12 @@ class WaterComplicationService : SuspendingTimelineComplicationDataSourceService
             snapshot.goalMl, tap, midnight) ?: return null
         val next = WaterComplicationData.create(this, request.complicationType, 0,
             snapshot.settings.goalMl, tap) ?: return null
-        return ComplicationDataTimeline(current, listOf(
+        // AndroidX caches each ComplicationData's wire object. Reusing `current` as the
+        // root and an entry makes the root contain itself, breaking Binder serialization.
+        // Keep the root valid after midnight so timeline-capable hosts can select `next`.
+        val fallback = WaterComplicationData.create(this, request.complicationType, snapshot.totalMl,
+            snapshot.goalMl, tap) ?: return null
+        return ComplicationDataTimeline(fallback, listOf(
             TimelineEntry(TimeInterval(Instant.EPOCH, midnight), current),
             TimelineEntry(TimeInterval(midnight, midnight.plusSeconds(3650L * 86400)), next)
         ))

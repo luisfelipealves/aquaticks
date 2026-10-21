@@ -40,7 +40,9 @@ internal fun HistoryScreen(model: WaterViewModel, onBack: () -> Unit) {
             Text("Carregando…", color = Gray)
         } else {
             Text("${formatMl(snapshot.totalMl)} ml", color = Color.White, fontSize = 24.sp)
-            Text("de ${formatMl(snapshot.goalMl)} ml · ${(snapshot.progress * 100).toInt()}%",
+            Text(if (snapshot.hasGoal)
+                "de ${formatMl(snapshot.goalMl)} ml · ${(snapshot.progress * 100).toInt()}%"
+                else "Meta não registrada",
                 color = Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
             IntakeBars(snapshot.intakes)
             if (snapshot.intakes.isEmpty()) Text("Sem registros", color = Gray, fontSize = 15.sp)

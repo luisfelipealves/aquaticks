@@ -45,9 +45,15 @@ class WaterComplicationServiceTest {
                 assertTrue(delivered.isActiveAt(Instant.now().toEpochMilli()))
                 assertEquals(2, delivered.timelineEntries!!.size)
                 assertEquals(type.toWireComplicationType(), delivered.type)
-                assertEquals(250f, if (type == ComplicationType.RANGED_VALUE) delivered.rangedValue else 250f, .001f)
+                if (type == ComplicationType.RANGED_VALUE) assertEquals(250f, delivered.rangedValue, .001f)
                 assertEquals("250ml", delivered.shortText!!.getTextAt(service.resources, System.currentTimeMillis()).toString())
                 assertNotNull(delivered.tapAction)
+                val midnight = timeline.timelineEntries.first().validity.end
+                assertTrue("Root must not expire before the next timeline entry", delivered.isActiveAt(midnight.toEpochMilli()))
+                val next = delivered.timelineEntries!![1]
+                assertEquals(midnight.epochSecond, next.timelineStartEpochSecond)
+                assertEquals("0ml", next.shortText!!.getTextAt(service.resources, midnight.toEpochMilli()).toString())
+                assertTrue(next.isActiveAt(midnight.toEpochMilli()))
             } finally { parcel.recycle() }
         } finally { controller.destroy() }
     }

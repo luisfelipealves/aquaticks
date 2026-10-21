@@ -47,6 +47,7 @@ signature mismatch if you want to preserve its local history.
 - Tap the large progress ring (+250 ml) once: one record, progress increase, brief "Boa!" confirmation.
 - Exit/reopen: the amount remains. Reboot: amount and settings remain.
 - Change the daily goal with +/−. Yesterday's goal must remain unchanged.
+  Dates with no saved goal show "Meta não registrada"; they must not borrow today's goal.
 - Enable notifications/reminders; choose 1/2/3/4 hours and quiet hours.
 - Test an interval while awake. Delivery is inexact and may be delayed by Android/Doze.
 - Verify no reminder appears during quiet hours, including a period crossing midnight.
@@ -71,3 +72,15 @@ Turn off wireless debugging after installation when you no longer need it.
   in a compatible short-text or ranged-value slot.
 - Record water and confirm the complication refreshes. Tap it to open AquaTicks.
 - Check its new-day behavior. Appearance and update timing depend on the watch face.
+  Older watch faces that ignore timelines rely on a system/app refresh for the new day.
+
+### If the complication slot stays blank
+Note the watch face name and slot position. With ADB connected, select AquaTicks again,
+then capture its relevant errors without clearing any app data:
+
+```sh
+./adb -s CONNECTED_DEVICE logcat -d -v brief AndroidRuntime:E AquaTicks:E '*:S'
+```
+
+Use the device whose status is `device` in `./adb devices`, including an mDNS name
+if the direct IP entry is offline. Share only the relevant AquaTicks exception.
