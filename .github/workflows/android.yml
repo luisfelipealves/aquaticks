@@ -42,6 +42,19 @@ jobs:
         with:
           path: debug.keystore
           key: aquaticks-debug-key-v2
+      - name: Provision initial debug key or require the cached key
+        shell: bash
+        run: |
+          if [ ! -s debug.keystore ]; then
+            if [ -f ci/debug-certificate.sha256 ]; then
+              echo "::error::Debug signing cache is missing. Restore the original keystore; refusing to generate an incompatible key."
+              exit 1
+            fi
+            keytool -genkeypair -keystore debug.keystore -storetype JKS \
+              -alias androiddebugkey -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA -keysize 2048 -validity 10000 -noprompt
+          fi
       - name: Test signing safeguards
         run: python3 -m unittest discover -s scripts/tests -v
       - name: Test, lint and build debug APK
