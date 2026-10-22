@@ -43,9 +43,8 @@ class WaterViewModel(application: Application) : AndroidViewModel(application) {
         _busy.value = true
         viewModelScope.launch {
             try {
-                val added = repository.add(amount, operationId)
+                repository.add(amount, operationId)
                 day.value = repository.today()
-                if (added) _message.value = "Boa!\n+$amount ml registrados"
                 // A UI/system refresh failure must never turn a committed intake into "not saved".
                 runCatching {
                     app.refreshSurfaces()

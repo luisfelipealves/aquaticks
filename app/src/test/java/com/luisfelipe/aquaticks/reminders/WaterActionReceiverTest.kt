@@ -58,9 +58,11 @@ class WaterActionReceiverTest {
         val notification = requireNotNull(notifications.getNotification(ReminderScheduler.NOTIFICATION_ID))
         val action = shadowOf(notification.actions.single().actionIntent).savedIntent
         receiver.processAction(app, action)
+        assertEquals(0, notifications.size())
         receiver.processAction(app, action)
         assertEquals(300, app.repository.snapshot().totalMl)
         assertEquals(1, app.repository.snapshot().intakes.size)
+        assertEquals(0, notifications.size())
     }
     @Test fun quietHoursSuppressDelayedDeliveryButKeepFutureAlarm() = runBlocking {
         val local = ZonedDateTime.now()

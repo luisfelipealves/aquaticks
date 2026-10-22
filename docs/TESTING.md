@@ -54,7 +54,9 @@ and reminders again. Otherwise preserve the data and stop before uninstalling.
 
 ## Watch acceptance checklist
 - Launch AquaTicks and confirm a black screen, blue ring, readable numbers and a +250 ml action inside the ring.
-- Tap the large progress ring (+250 ml) once: one record, progress increase, brief "Boa!" confirmation.
+- Tap the large progress ring (+250 ml) once: one record and immediate progress increase,
+  without a success message or overlay. A notification action also records silently
+  and dismisses its reminder without creating a confirmation notification.
 - Exit/reopen: the amount remains. Reboot: amount and settings remain.
 - Change the daily goal with +/−. Yesterday's goal must remain unchanged.
   Dates with no saved goal show "Meta não registrada"; they must not borrow today's goal.

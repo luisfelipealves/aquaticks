@@ -38,9 +38,9 @@ class WaterActionReceiver : BroadcastReceiver() {
             if (intent.action == ReminderScheduler.ACTION_ADD) {
                 val operation = intent.data?.lastPathSegment ?: return
                 val amount = intent.getIntExtra("amount", 250)
-                val added = app.repository.add(amount, operation)
+                app.repository.add(amount, operation)
+                NotificationManagerCompat.from(context).cancel(ReminderScheduler.NOTIFICATION_ID)
                 context.refreshSurfaces()
-                if (added && app.reminders.allowed()) confirm(context, amount)
             } else {
                 val prefs = app.repository.settings()
                 if (prefs.remindersEnabled && app.reminders.allowed() &&
@@ -76,18 +76,6 @@ class WaterActionReceiver : BroadcastReceiver() {
             .setTimeoutAfter(45 * 60 * 1000L)
             .setOnlyAlertOnce(true)
             .addAction(R.drawable.ic_drop, "+$amount ml", add)
-            .build()
-        NotificationManagerCompat.from(context).notify(ReminderScheduler.NOTIFICATION_ID, notification)
-    }
-    @SuppressLint("MissingPermission")
-    private fun confirm(context: Context, amount: Int) {
-        val notification = NotificationCompat.Builder(context, ReminderScheduler.CHANNEL)
-            .setSmallIcon(R.drawable.ic_drop)
-            .setContentTitle("Boa!")
-            .setContentText("+$amount ml registrados")
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setTimeoutAfter(4000)
             .build()
         NotificationManagerCompat.from(context).notify(ReminderScheduler.NOTIFICATION_ID, notification)
     }

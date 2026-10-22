@@ -31,10 +31,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +75,6 @@ fun AquaTicksScreen(model: WaterViewModel) {
         notificationAllowed = granted
         model.update { it.copy(remindersEnabled = granted) }
     }
-    val haptics = LocalHapticFeedback.current
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -110,8 +107,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
     }
     LaunchedEffect(message) {
         if (message != null) {
-            if (message!!.startsWith("Boa!")) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            delay(if (message!!.startsWith("Boa!")) 1300 else 3500)
+            delay(3500)
             model.dismissMessage()
         }
     }
@@ -214,7 +210,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Box(Modifier.size(64.dp).clip(CircleShape).background(Blue),
                             contentAlignment = Alignment.Center) {
-                            Text(if (message!!.startsWith("Boa!")) "✓" else "!", color = Color.Black, fontSize = 36.sp)
+                            Text("!", color = Color.Black, fontSize = 36.sp)
                         }
                         Text(message!!, color = Color.White, textAlign = TextAlign.Center, fontSize = 18.sp)
                     }
