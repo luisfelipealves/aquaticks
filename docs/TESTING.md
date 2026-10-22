@@ -50,6 +50,9 @@ signature mismatch if you want to preserve its local history.
   Dates with no saved goal show "Meta não registrada"; they must not borrow today's goal.
 - Enable notifications/reminders; choose 1/2/3/4 hours and quiet hours.
 - Test an interval while awake. Delivery is inexact and may be delayed by Android/Doze.
+- With reminders allowed and enabled, wait outside quiet hours with the screen off.
+  Reopening the app after a missed deadline must not start another full interval.
+  Version 0.2.2 uses an inexact idle-capable alarm; Android can still batch delivery.
 - Verify no reminder appears during quiet hours, including a period crossing midnight.
 - Reject notification permission: tracking still works; UI shows how to allow notifications.
 - Add the Água Tile through the watch's Tile picker. It shows total and goal;
@@ -63,6 +66,13 @@ signature mismatch if you want to preserve its local history.
 Watch-only battery, OS scheduling, haptic strength and exact circular clipping have
 not been validated by a JVM build. Debug builds are for testing, not Play distribution.
 Turn off wireless debugging after installation when you no longer need it.
+
+If no reminder arrives after the selected interval outside quiet hours, note the
+interval, quiet hours and watch notification/Do Not Disturb settings. Preserve app
+data. With ADB connected, collect only AquaTicks lines from `dumpsys alarm` and
+relevant errors from `logcat -d -v brief AndroidRuntime:E AquaTicks:E '*:S'`.
+The device/Doze delivery timing still requires a real-watch test; JVM tests exercise
+scheduling and the notification receiver processing, not Samsung's power manager.
 
 ## History, doses and complication (second milestone)
 - Use Outra quantidade to add 100/200/250/300/500 ml without changing the default.

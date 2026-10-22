@@ -25,26 +25,34 @@ class WaterActionReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 withTimeout(8000) {
-                    val app = context.aquaApp
-                    if (intent.action == ReminderScheduler.ACTION_ADD) {
-                        val operation = intent.data?.lastPathSegment ?: return@withTimeout
-                        val amount = intent.getIntExtra("amount", 250)
-                        val added = app.repository.add(amount, operation)
-                        context.refreshSurfaces()
-                        if (added && app.reminders.allowed()) confirm(context, amount)
-                    } else {
-                        val prefs = app.repository.settings()
-                        if (prefs.remindersEnabled && app.reminders.allowed() &&
-                            !WaterRules.quiet(ZonedDateTime.now(), prefs.quietEnabled,
-                                prefs.quietStart, prefs.quietEnd)) {
-                            showReminder(context, prefs.defaultMl)
-                        }
-                    }
-                    app.reminders.reconcile()
+                    processAction(context, intent)
                 }
             } catch (error: Exception) {
                 Log.e("AquaTicks", "Could not process local water reminder", error)
             } finally { pending.finish() }
+        }
+    }
+    internal suspend fun processAction(context: Context, intent: Intent) {
+        val app = context.aquaApp
+        try {
+            if (intent.action == ReminderScheduler.ACTION_ADD) {
+                val operation = intent.data?.lastPathSegment ?: return
+                val amount = intent.getIntExtra("amount", 250)
+                val added = app.repository.add(amount, operation)
+                context.refreshSurfaces()
+                if (added && app.reminders.allowed()) confirm(context, amount)
+            } else {
+                val prefs = app.repository.settings()
+                if (prefs.remindersEnabled && app.reminders.allowed() &&
+                    !WaterRules.quiet(ZonedDateTime.now(), prefs.quietEnabled,
+                        prefs.quietStart, prefs.quietEnd)) {
+                    showReminder(context, prefs.defaultMl)
+                }
+            }
+        } finally {
+            // Only a delivered alarm consumes the deadline. Foreground refreshes and
+            // intake actions preserve it. A notification failure must not stop the chain.
+            app.reminders.reconcile(force = intent.action == ReminderScheduler.ACTION_REMIND)
         }
     }
     @SuppressLint("MissingPermission")
