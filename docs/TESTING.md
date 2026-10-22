@@ -38,9 +38,19 @@ shown by that version and approve the connection on the watch; pairing may not b
 Official instructions: https://developer.android.com/training/wearables/get-started/debug-wifi.
 
 This builds entirely in the cloud. ADB here is only for installation.
-The debug keystore is cached by Actions to support test upgrades. A cache reset can
-change the signature. GitHub caches are scoped, so builds from a pull request and main may also use different debug keys; do not uninstall an existing installation merely to solve a
-signature mismatch if you want to preserve its local history.
+The debug keystore is at the ignored repository-root `debug.keystore`, matching the
+Actions cache path exactly. CI checks the APK signer against that key and the public
+fingerprint in `ci/debug-certificate.sha256` before uploading the APK. A missing or
+changed cached key fails verification; it must not silently publish a new identity.
+The private key is never committed or uploaded as an artifact. Cache retention is
+finite and caches are scoped to workflow refs: moving from PR to main may require
+restoring the same private key through a secure signing setup. These are test builds,
+not a production key-management solution.
+
+If an old test install already has a different signature, uninstalling erases all
+its local records/settings. Do this only when loss is acceptable (as explicitly
+authorized for the current test data), then install fresh and allow notifications
+and reminders again. Otherwise preserve the data and stop before uninstalling.
 
 ## Watch acceptance checklist
 - Launch AquaTicks and confirm a black screen, blue ring, readable numbers and a +250 ml action inside the ring.

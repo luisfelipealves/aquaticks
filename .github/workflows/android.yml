@@ -40,14 +40,22 @@ jobs:
       - name: Reuse debug signing key for test upgrades
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: aquaticks-debug-key-v1
+          path: debug.keystore
+          key: aquaticks-debug-key-v2
+      - name: Test signing safeguards
+        run: python3 -m unittest discover -s scripts/tests -v
       - name: Test, lint and build debug APK
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Verify debug signing identity
+        run: >-
+          python3 scripts/verify_debug_signing.py
+          --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          --allow-unpinned
       - name: Summarize tests and exported database schema
         if: always()
         run: python3 scripts/build_report.py
       - name: Upload debug APK
+        if: ${{ hashFiles('ci/debug-certificate.sha256') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: aquaticks-debug-${{ github.run_number }}

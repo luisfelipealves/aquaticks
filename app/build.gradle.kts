@@ -15,6 +15,10 @@ android {
         versionName = "0.2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    signingConfigs.getByName("debug") {
+        // Match the CI cache exactly; do not depend on the runner's Android home.
+        storeFile = rootProject.file("debug.keystore")
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
