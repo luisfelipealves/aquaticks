@@ -21,6 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -42,6 +43,45 @@ class ReminderSchedulerTest {
         repository.update { it.copy(remindersEnabled = true, intervalHours = 1, quietEnabled = false) }
     }
     @After fun close() { db.close() }
+
+    @Test fun twoHourIntervalStartsAtNextWholeHourThenKeepsItsPhase() = runBlocking {
+        clock.current = Instant.parse("2026-10-23T11:43:00Z") // 12:43 Lisbon
+        repository.update { it.copy(intervalHours = 2) }
+        scheduler.reconcile()
+        assertEquals(Instant.parse("2026-10-23T12:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt) // 13:00
+        clock.current = Instant.parse("2026-10-23T12:04:00Z")
+        scheduler.reconcile(force = true)
+        assertEquals(Instant.parse("2026-10-23T14:00:00Z").toEpochMilli(),
+            alarms.scheduledAlarms.single().triggerAtTime) // 15:00, not 15:04
+    }
+    @Test fun lateDeliverySkipsMissedSlotsWithoutShiftingCadence() = runBlocking {
+        clock.current = Instant.parse("2026-10-23T11:43:00Z")
+        scheduler.reconcile() // requested 13:00 local
+        clock.current = Instant.parse("2026-10-23T13:58:00Z") // delivered 14:58
+        scheduler.reconcile(force = true)
+        assertEquals(Instant.parse("2026-10-23T14:00:00Z").toEpochMilli(),
+            alarms.scheduledAlarms.single().triggerAtTime) // next 15:00, not 15:58
+        assertEquals(1, alarms.scheduledAlarms.size)
+    }
+    @Test fun precisePermissionUsesAnExactIdleCapableAlarm() = runBlocking {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        scheduler.reconcile()
+        val alarm = alarms.scheduledAlarms.single()
+        assertEquals(0L, alarm.windowLengthMs)
+        assertTrue(alarm.isAllowWhileIdle)
+    }
+    @Test fun grantingPrecisePermissionChangesModeWithoutMovingTheDeadline() = runBlocking {
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        scheduler.reconcile()
+        val due = repository.settings().nextReminderAt
+        assertNotEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        scheduler.reconcile()
+        assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
+        assertEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
+        assertEquals(1, alarms.scheduledAlarms.size)
+    }
 
     @Test fun enablingSchedulesOneInexactIdleCapableAlarm() = runBlocking {
         scheduler.reconcile()
