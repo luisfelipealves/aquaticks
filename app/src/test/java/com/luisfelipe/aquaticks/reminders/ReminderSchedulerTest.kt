@@ -1,0 +1,185 @@
+package com.luisfelipe.aquaticks.reminders
+
+import android.Manifest
+import android.app.AlarmManager
+import android.app.Application
+import android.app.NotificationManager
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.luisfelipe.aquaticks.data.WaterDatabase
+import com.luisfelipe.aquaticks.data.WaterRepository
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35], application = Application::class)
+class ReminderSchedulerTest {
+    private lateinit var app: Application
+    private lateinit var db: WaterDatabase
+    private lateinit var repository: WaterRepository
+    private lateinit var scheduler: ReminderScheduler
+    private val clock = MovingClock(Instant.parse("2026-10-22T10:00:00Z"))
+    private val zone = ZoneId.of("Europe/Lisbon")
+    private val alarms get() = shadowOf(app.getSystemService(AlarmManager::class.java))
+
+    @Before fun setup() = runBlocking {
+        app = ApplicationProvider.getApplicationContext()
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        db = Room.inMemoryDatabaseBuilder(app, WaterDatabase::class.java).build()
+        repository = WaterRepository(db, clock) { zone }
+        scheduler = ReminderScheduler(app, repository, clock) { zone }
+        repository.update { it.copy(remindersEnabled = true, intervalHours = 1, quietEnabled = false) }
+    }
+    @After fun close() { db.close() }
+
+    @Test fun twoHourIntervalStartsAtNextWholeHourThenKeepsItsPhase() = runBlocking {
+        clock.current = Instant.parse("2026-10-23T11:43:00Z") // 12:43 Lisbon
+        repository.update { it.copy(intervalHours = 2) }
+        scheduler.reconcile()
+        assertEquals(Instant.parse("2026-10-23T12:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt) // 13:00
+        clock.current = Instant.parse("2026-10-23T12:04:00Z")
+        scheduler.reconcile(force = true)
+        assertEquals(Instant.parse("2026-10-23T14:00:00Z").toEpochMilli(),
+            alarms.scheduledAlarms.single().triggerAtTime) // 15:00, not 15:04
+    }
+    @Test fun lateDeliverySkipsMissedSlotsWithoutShiftingCadence() = runBlocking {
+        clock.current = Instant.parse("2026-10-23T11:43:00Z")
+        scheduler.reconcile() // requested 13:00 local
+        clock.current = Instant.parse("2026-10-23T13:58:00Z") // delivered 14:58
+        scheduler.reconcile(force = true)
+        assertEquals(Instant.parse("2026-10-23T14:00:00Z").toEpochMilli(),
+            alarms.scheduledAlarms.single().triggerAtTime) // next 15:00, not 15:58
+        assertEquals(1, alarms.scheduledAlarms.size)
+    }
+    @Test fun precisePermissionUsesAnExactIdleCapableAlarm() = runBlocking {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        scheduler.reconcile()
+        val alarm = alarms.scheduledAlarms.single()
+        assertEquals(0L, alarm.windowLengthMs)
+        assertTrue(alarm.isAllowWhileIdle)
+    }
+    @Test fun grantingPrecisePermissionChangesModeWithoutMovingTheDeadline() = runBlocking {
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        scheduler.reconcile()
+        val due = repository.settings().nextReminderAt
+        assertNotEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        scheduler.reconcile()
+        assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
+        assertEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
+        assertEquals(1, alarms.scheduledAlarms.size)
+    }
+    @Test fun revokingPreciseAccessFallsBackWhenReconciledWithoutMovingTarget() = runBlocking {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        scheduler.reconcile()
+        val due = repository.settings().nextReminderAt
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        scheduler.reconcile()
+        assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
+        assertNotEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
+        assertFalse(ReminderDiagnostics(app).snapshot().precise)
+    }
+    @Test fun oldNonHourDeadlineRealignsWithoutLosingConsumption() = runBlocking {
+        repository.add(250, "before-upgrade")
+        repository.update { it.copy(nextReminderAt = Instant.parse("2026-10-22T11:37:00Z").toEpochMilli()) }
+        scheduler.reconcile()
+        assertEquals(Instant.parse("2026-10-22T11:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt)
+        assertEquals(250, repository.snapshot().totalMl)
+    }
+    @Test fun impossibleQuietWindowCancelsExistingAlarm() = runBlocking {
+        scheduler.reconcile()
+        repository.update { it.copy(quietEnabled = true, quietStart = 0, quietEnd = 1410) }
+        scheduler.reconcile()
+        assertTrue(alarms.scheduledAlarms.isEmpty())
+        assertEquals(0L, repository.settings().nextReminderAt)
+        assertEquals(0L, ReminderDiagnostics(app).snapshot().scheduledAt)
+    }
+    @Test fun manualClockChangeResetsToNextHourInsteadOfKeepingOldPhase() = runBlocking {
+        clock.current = Instant.parse("2026-10-23T11:43:00Z")
+        repository.update { it.copy(intervalHours = 2) }
+        scheduler.reconcile()
+        clock.current = Instant.parse("2026-10-23T12:43:00Z")
+        scheduler.reconcile(reset = true)
+        assertEquals(Instant.parse("2026-10-23T13:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt)
+    }
+
+    @Test fun enablingSchedulesOneInexactIdleCapableAlarm() = runBlocking {
+        scheduler.reconcile()
+        val alarm = alarms.scheduledAlarms.single()
+        assertTrue(alarm.isAllowWhileIdle)
+        assertEquals(AlarmManager.RTC_WAKEUP, alarm.type)
+        assertEquals(clock.instant().plusSeconds(3600).toEpochMilli(), alarm.triggerAtTime)
+        assertEquals(0L, alarm.interval)
+    }
+    @Test fun openingAppAfterDeadlineSkipsToNextSlotWithoutDrifting() = runBlocking {
+        scheduler.reconcile()
+        clock.current = clock.current.plusSeconds(4500)
+        repeat(3) { scheduler.reconcile() }
+        val nextSlot = Instant.parse("2026-10-22T12:00:00Z").toEpochMilli()
+        assertEquals(nextSlot, repository.settings().nextReminderAt)
+        assertEquals(nextSlot, alarms.scheduledAlarms.single().triggerAtTime)
+    }
+    @Test fun recordingWaterKeepsTheNextCalendarSlot() = runBlocking {
+        scheduler.reconcile()
+        clock.current = clock.current.plusSeconds(4500)
+        repository.add(250)
+        scheduler.reconcile()
+        assertEquals(Instant.parse("2026-10-22T12:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt)
+    }
+    @Test fun deliveredAlarmAdvancesOneIntervalAndRefreshKeepsIt() = runBlocking {
+        scheduler.reconcile()
+        clock.current = clock.current.plusSeconds(4500)
+        scheduler.reconcile(force = true)
+        val next = Instant.parse("2026-10-22T12:00:00Z").toEpochMilli()
+        assertEquals(next, repository.settings().nextReminderAt)
+        scheduler.reconcile()
+        assertEquals(next, alarms.scheduledAlarms.single().triggerAtTime)
+    }
+    @Test fun overdueAlarmDuringQuietHoursMovesToMorning() = runBlocking {
+        repository.update { it.copy(quietEnabled = true, quietStart = 1320, quietEnd = 480) }
+        scheduler.reconcile()
+        clock.current = Instant.parse("2026-10-22T22:00:00Z")
+        scheduler.reconcile()
+        val morning = java.time.LocalDateTime.parse("2026-10-23T08:00").atZone(zone).toInstant()
+        assertEquals(morning.toEpochMilli(), alarms.scheduledAlarms.single().triggerAtTime)
+    }
+    @Test fun disablingOrRevokingPermissionCancelsAlarm() = runBlocking {
+        scheduler.reconcile()
+        shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        scheduler.reconcile()
+        assertTrue(alarms.scheduledAlarms.isEmpty())
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        scheduler.reconcile()
+        assertEquals(1, alarms.scheduledAlarms.size)
+        repository.update { it.copy(remindersEnabled = false) }
+        scheduler.reconcile()
+        assertTrue(alarms.scheduledAlarms.isEmpty())
+    }
+    @Test fun blockedNotificationsPreventScheduling() = runBlocking {
+        shadowOf(app.getSystemService(NotificationManager::class.java)).setNotificationsEnabled(false)
+        scheduler.reconcile()
+        assertTrue(alarms.scheduledAlarms.isEmpty())
+    }
+    private class MovingClock(var current: Instant) : Clock() {
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+        override fun withZone(zone: ZoneId): Clock = this
+        override fun instant(): Instant = current
+    }
+}

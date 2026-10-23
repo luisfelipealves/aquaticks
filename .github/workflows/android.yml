@@ -1,0 +1,87 @@
+name: Wear OS APK
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wear-apk-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          cache-read-only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      - name: Set up Android command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Reuse debug signing key for test upgrades
+        uses: actions/cache@v4
+        with:
+          path: debug.keystore
+          key: aquaticks-debug-key-v2
+      - name: Provision initial debug key or require the cached key
+        shell: bash
+        run: |
+          if [ ! -s debug.keystore ]; then
+            if [ -f ci/debug-certificate.sha256 ]; then
+              echo "::error::Debug signing cache is missing. Restore the original keystore; refusing to generate an incompatible key."
+              exit 1
+            fi
+            keytool -genkeypair -keystore debug.keystore -storetype JKS \
+              -alias androiddebugkey -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA -keysize 2048 -validity 10000 -noprompt
+          fi
+      - name: Test signing safeguards
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Test, lint and build debug APK
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Verify debug signing identity
+        run: >-
+          python3 scripts/verify_debug_signing.py
+          --apksigner "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Summarize tests and exported database schema
+        if: always()
+        run: python3 scripts/build_report.py
+      - name: Upload debug APK
+        if: ${{ hashFiles('ci/debug-certificate.sha256') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: aquaticks-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload verification reports and Room schemas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aquaticks-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+            app/schemas/
+          if-no-files-found: warn
+          retention-days: 14
