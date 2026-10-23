@@ -46,7 +46,7 @@ class WaterActionReceiverTest {
     }
 
     @Test fun deliveryPostsReminderAndArmsNextAlarm() = runBlocking {
-        val before = Instant.now()
+        val nextHour = ZonedDateTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0).toInstant()
         receiver.processAction(app, reminder())
         val notification = requireNotNull(notifications.getNotification(ReminderScheduler.NOTIFICATION_ID))
         assertEquals("Hora de beber água!", notification.extras.getCharSequence(Notification.EXTRA_TITLE))
@@ -56,8 +56,7 @@ class WaterActionReceiverTest {
         assertEquals("+300 ml", notification.actions.single().title)
         assertEquals(0, notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
         val due = app.repository.settings().nextReminderAt
-        assertTrue(due >= before.plusSeconds(3600).toEpochMilli())
-        assertTrue(due <= Instant.now().plusSeconds(3600).toEpochMilli())
+        assertEquals(nextHour.toEpochMilli(), due)
         assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
         assertTrue(alarms.scheduledAlarms.single().isAllowWhileIdle)
         assertEquals(0, app.repository.snapshot().totalMl)

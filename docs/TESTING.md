@@ -61,16 +61,27 @@ and reminders again. Otherwise preserve the data and stop before uninstalling.
 - Change the daily goal with +/−. Yesterday's goal must remain unchanged.
   Dates with no saved goal show "Meta não registrada"; they must not borrow today's goal.
 - Enable notifications/reminders; choose 1/2/3/4 hours and quiet hours.
-- Test an interval while awake. Delivery is inexact and may be delayed by Android/Doze.
+- On 0.2.5+, enable at12:43: first deadline13:00. With interval2 hours, subsequent
+  slots are15:00 and17:00. Enabling exactly on an hour starts at the next hour.
+- In settings, use **Permitir horário preciso** and grant the native special access
+  if available; this is separate from notification permission. Return to AquaTicks
+  and verify the precise status. Without access, the UI says scheduling is approximate
+  and Android/Doze may delay delivery. If the watch cannot open the access screen,
+  check its system settings; the approximate fallback remains usable.
 - With reminders allowed and enabled, wait outside quiet hours with the screen off.
-  Reopening the app after a missed deadline must not start another full interval.
-  The alarm is inexact and idle-capable; Android can still batch delivery.
-  On 0.2.4+, repeat for at least two intervals without opening AquaTicks between them,
+  Reopening after a missed deadline skips expired slots and keeps the future calendar
+  cadence. A delayed13:00 delivery at14:58 schedules15:00 with an hourly interval.
+  Repeat for at least two intervals without opening AquaTicks between them,
   including leaving the first notification unacknowledged. Each new reminder may alert.
   In Configurações > Estado dos lembretes, note Próximo previsto, Última execução,
   Notificação criada and Última falha. They are a fixed-size local diagnostic snapshot;
   creation does not prove the watch displayed or vibrated the notification.
 - Verify no reminder appears during quiet hours, including a period crossing midnight.
+  A quiet period ending08:30 resumes09:00. A period00:00–23:30 leaves no eligible
+  whole hour: no alarm and a visible explanation. Changing the period restores scheduling.
+- Grant precise access with a valid future deadline: its time stays fixed. Revoke access:
+  Android stops the app and cancels exact alarms; reopen AquaTicks to resume approximate
+  scheduling. Reboot and verify the future deadline is restored without losing records.
 - Reject notification permission: tracking still works; UI shows how to allow notifications.
 - Add the Água Tile through the watch's Tile picker. It shows total and goal;
   tapping opens the app at the quick-register action. A refresh never records water.

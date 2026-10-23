@@ -37,6 +37,7 @@ class ReminderSchedulerTest {
     @Before fun setup() = runBlocking {
         app = ApplicationProvider.getApplicationContext()
         shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
         db = Room.inMemoryDatabaseBuilder(app, WaterDatabase::class.java).build()
         repository = WaterRepository(db, clock) { zone }
         scheduler = ReminderScheduler(app, repository, clock) { zone }
@@ -82,6 +83,41 @@ class ReminderSchedulerTest {
         assertEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
         assertEquals(1, alarms.scheduledAlarms.size)
     }
+    @Test fun revokingPreciseAccessFallsBackWhenReconciledWithoutMovingTarget() = runBlocking {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        scheduler.reconcile()
+        val due = repository.settings().nextReminderAt
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        scheduler.reconcile()
+        assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
+        assertNotEquals(0L, alarms.scheduledAlarms.single().windowLengthMs)
+        assertFalse(ReminderDiagnostics(app).snapshot().precise)
+    }
+    @Test fun oldNonHourDeadlineRealignsWithoutLosingConsumption() = runBlocking {
+        repository.add(250, "before-upgrade")
+        repository.update { it.copy(nextReminderAt = Instant.parse("2026-10-22T11:37:00Z").toEpochMilli()) }
+        scheduler.reconcile()
+        assertEquals(Instant.parse("2026-10-22T11:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt)
+        assertEquals(250, repository.snapshot().totalMl)
+    }
+    @Test fun impossibleQuietWindowCancelsExistingAlarm() = runBlocking {
+        scheduler.reconcile()
+        repository.update { it.copy(quietEnabled = true, quietStart = 0, quietEnd = 1410) }
+        scheduler.reconcile()
+        assertTrue(alarms.scheduledAlarms.isEmpty())
+        assertEquals(0L, repository.settings().nextReminderAt)
+        assertEquals(0L, ReminderDiagnostics(app).snapshot().scheduledAt)
+    }
+    @Test fun manualClockChangeResetsToNextHourInsteadOfKeepingOldPhase() = runBlocking {
+        clock.current = Instant.parse("2026-10-23T11:43:00Z")
+        repository.update { it.copy(intervalHours = 2) }
+        scheduler.reconcile()
+        clock.current = Instant.parse("2026-10-23T12:43:00Z")
+        scheduler.reconcile(reset = true)
+        assertEquals(Instant.parse("2026-10-23T13:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt)
+    }
 
     @Test fun enablingSchedulesOneInexactIdleCapableAlarm() = runBlocking {
         scheduler.reconcile()
@@ -91,27 +127,27 @@ class ReminderSchedulerTest {
         assertEquals(clock.instant().plusSeconds(3600).toEpochMilli(), alarm.triggerAtTime)
         assertEquals(0L, alarm.interval)
     }
-    @Test fun openingAppAfterDeadlineDoesNotPostponeOverdueReminder() = runBlocking {
+    @Test fun openingAppAfterDeadlineSkipsToNextSlotWithoutDrifting() = runBlocking {
         scheduler.reconcile()
-        val due = repository.settings().nextReminderAt
         clock.current = clock.current.plusSeconds(4500)
         repeat(3) { scheduler.reconcile() }
-        assertEquals(due, repository.settings().nextReminderAt)
-        assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
+        val nextSlot = Instant.parse("2026-10-22T12:00:00Z").toEpochMilli()
+        assertEquals(nextSlot, repository.settings().nextReminderAt)
+        assertEquals(nextSlot, alarms.scheduledAlarms.single().triggerAtTime)
     }
-    @Test fun recordingWaterDoesNotPostponeAnOverdueReminder() = runBlocking {
+    @Test fun recordingWaterKeepsTheNextCalendarSlot() = runBlocking {
         scheduler.reconcile()
-        val due = repository.settings().nextReminderAt
         clock.current = clock.current.plusSeconds(4500)
         repository.add(250)
         scheduler.reconcile()
-        assertEquals(due, repository.settings().nextReminderAt)
+        assertEquals(Instant.parse("2026-10-22T12:00:00Z").toEpochMilli(),
+            repository.settings().nextReminderAt)
     }
     @Test fun deliveredAlarmAdvancesOneIntervalAndRefreshKeepsIt() = runBlocking {
         scheduler.reconcile()
         clock.current = clock.current.plusSeconds(4500)
         scheduler.reconcile(force = true)
-        val next = clock.instant().plusSeconds(3600).toEpochMilli()
+        val next = Instant.parse("2026-10-22T12:00:00Z").toEpochMilli()
         assertEquals(next, repository.settings().nextReminderAt)
         scheduler.reconcile()
         assertEquals(next, alarms.scheduledAlarms.single().triggerAtTime)

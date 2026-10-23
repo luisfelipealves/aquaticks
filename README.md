@@ -33,7 +33,7 @@ no intake records, stay on the watch and are available under reminder settings.
 | `ui/` | Wear Compose screens, ViewModel and state |
 | `domain/` | Progress, local-day and quiet-hour rules |
 | `data/` | Room entities/DAO/database and transactional repository |
-| `reminders/` | One inexact alarm, notification channel/actions and system-change recovery |
+| `reminders/` | One calendar alarm, notification channel/actions and system-change recovery |
 | `tile/` | Wear Tile provider and midnight timeline |
 | `complication/` | Short-text/ranged-value data source and midnight timeline |
 | `app/src/test/` | Rules, persistence and complication tests |
@@ -49,8 +49,10 @@ No Android Studio or local compilation is required. The build uses JDK 17, Gradl
 AGP 8.13.2, Kotlin 2.2.21 and Android SDK 36. Versions are pinned in Gradle files.
 
 ## Limitations
-- Reminders are intentionally inexact; Android/Doze may delay them. They respect quiet hours
-  at delivery time, notification settings and Do Not Disturb.
+- Reminders start at the next local whole hour, then follow the selected interval.
+  Native precise alarm access is separate from notification permission; without it,
+  scheduling is approximate and Android/Doze may delay delivery. Even precise alarms
+  do not guarantee a visible alert or vibration. Quiet hours and notification settings apply.
 - The Tile opens quick logging; it does not record solely because it is displayed/refreshed.
 - A complication's final appearance depends on the chosen watch face and slot.
   Modern hosts can apply the supplied midnight timeline; older hosts may briefly show no

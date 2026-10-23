@@ -5,6 +5,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 object WaterRules {
     val amounts = listOf(100, 200, 250, 300, 500)
@@ -24,18 +25,30 @@ object WaterRules {
         else minute >= start || minute < end
     }
     fun nextReminder(now: Instant, zone: ZoneId, intervalHours: Int,
-        quietEnabled: Boolean, start: Int, end: Int): Instant {
+        quietEnabled: Boolean, start: Int, end: Int, previousTarget: Instant? = null): Instant? {
         require(intervalHours in intervals)
         require(start in 0..1439 && end in 0..1439)
-        var candidate = now.plusSeconds(intervalHours * 3600L).atZone(zone)
-        if (quiet(candidate, quietEnabled, start, end)) {
-            var endDate = candidate.toLocalDate()
-            val minute = candidate.hour * 60 + candidate.minute
-            if (start > end && minute >= start) endDate = endDate.plusDays(1)
-            candidate = endDate.atStartOfDay(zone).withHour(end / 60).withMinute(end % 60)
-                .withSecond(0).withNano(0)
+        val localNow = now.atZone(zone).toLocalDateTime()
+        val previous = previousTarget?.takeIf { isWholeHour(it, zone) }
+            ?.atZone(zone)?.toLocalDateTime()
+        var candidate = previous?.plusHours(intervalHours.toLong())
+            ?: localNow.truncatedTo(ChronoUnit.HOURS).plusHours(1)
+        if (candidate <= localNow) {
+            val missedHours = Duration.between(candidate, localNow).toHours()
+            candidate = candidate.plusHours((missedHours / intervalHours + 1) * intervalHours)
         }
-        // A DST transition can skip/overlap an hour. Never schedule in the past.
-        return candidate.toInstant().takeIf { it > now } ?: now.plusSeconds(60)
+        // Local calendar arithmetic skips a repeated DST hour. Gaps may resolve to a
+        // half hour in some zones; only accept an actual whole hour after resolution.
+        // Scan at most two days: some quiet windows leave no eligible whole hour.
+        repeat(48) {
+            val resolved = candidate.atZone(zone)
+            if (resolved.toInstant() > now && isWholeHour(resolved.toInstant(), zone) &&
+                !quiet(resolved, quietEnabled, start, end)) return resolved.toInstant()
+            candidate = candidate.plusHours(1)
+        }
+        return null
+    }
+    fun isWholeHour(time: Instant, zone: ZoneId): Boolean = time.atZone(zone).let {
+        it.minute == 0 && it.second == 0 && it.nano == 0
     }
 }

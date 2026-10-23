@@ -12,7 +12,8 @@ internal class ReminderDiagnostics(context: Context) {
     fun posted() = preferences.edit()
         .putLong("posted", System.currentTimeMillis()).apply()
 
-    fun scheduled(at: Long) = preferences.edit().putLong("scheduled", at).apply()
+    fun scheduled(at: Long, precise: Boolean = false) = preferences.edit()
+        .putLong("scheduled", at).putBoolean("precise", precise).apply()
 
     fun finished(failed: Boolean) {
         val now = System.currentTimeMillis()
@@ -27,7 +28,8 @@ internal class ReminderDiagnostics(context: Context) {
         preferences.getLong("posted", 0),
         preferences.getLong("scheduled", 0),
         preferences.getLong("finished", 0),
-        preferences.getLong("failed", 0)
+        preferences.getLong("failed", 0),
+        preferences.getBoolean("precise", false)
     )
 }
 
@@ -36,5 +38,6 @@ internal data class ReminderDiagnosticSnapshot(
     val postedAt: Long,
     val scheduledAt: Long,
     val finishedAt: Long,
-    val failedAt: Long
+    val failedAt: Long,
+    val precise: Boolean
 )

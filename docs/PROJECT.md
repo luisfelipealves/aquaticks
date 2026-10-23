@@ -4,7 +4,7 @@
 Native standalone Wear OS app for Samsung Galaxy Watch (Wear OS 3+, API 30+).
 Kotlin, Jetpack Compose for Wear OS, black background, blue accents, white/gray text, circular-screen layout.
 The user's supplied eight-watch concept is the official visual reference. Do not add gradients or decorative UI.
-The principal interaction is one tap to record 250 ml, with brief confirmation and a daily progress ring.
+The principal interaction is one tap to record 250 ml, with immediate progress update and a daily progress ring.
 Portuguese is the initial UI language; project name and repository documentation use English.
 
 ## Incremental delivery
@@ -31,8 +31,9 @@ An active UI waits once until midnight; it does not poll. A Tile timeline suppli
 ## Reminders and battery
 Disabled until user enables them; default interval 2 hours; choices 1/2/3/4 hours.
 Default quiet period 22:00–08:00, editable with watch-sized hour/minute controls.
-Single inexact AlarmManager alarm; no exact-alarm permission, periodic service, polling, or network.
-Android may delay delivery. Receiver re-checks the current quiet period and notification permission at actual delivery, skips silence and reschedules. No burst of missed reminders.
+First deadline is the next local whole hour: enabling at12:43 schedules13:00, even with a2-hour interval; subsequent slots are15:00,17:00. Delayed delivery advances from the requested slot, skipping elapsed slots without drifting or replaying missed alerts. Quiet periods resume at the first eligible whole hour; if none exists, no alarm is scheduled.
+One idle-capable AlarmManager alarm: exact with native SCHEDULE_EXACT_ALARM special access, otherwise approximate. Notification permission is separate. No periodic service, polling, network or USE_EXACT_ALARM permission.
+Receiver re-checks quiet hours and notification permission at delivery. Foreground/reboot reconciliation preserves valid future slots and skips expired slots; clock/timezone or schedule changes reset the phase. Exact delivery still does not guarantee a visible alert or vibration; channel settings and Do Not Disturb apply.
 Notification includes a direct add-water action, deduplicated by notification instance ID.
 Notifications/haptics respect Android notification channel settings and Do Not Disturb.
 If notifications are denied, UI explains that reminders need permission; core tracking remains usable.

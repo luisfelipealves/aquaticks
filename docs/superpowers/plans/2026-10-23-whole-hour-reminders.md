@@ -24,9 +24,9 @@
 **Files:** WaterRules.kt, ReminderScheduler.kt, WaterActionReceiver.kt, SystemChangeReceiver.kt, ReminderDiagnostics.kt, AquaTicksScreen.kt, AndroidManifest.xml, app/build.gradle.kts; domain/scheduler/receiver tests and docs/TESTING.md.
 **Interfaces:** Keep Settings.nextReminderAt. Extend nextReminder with optional prior deadline, nullable result for impossible quiet windows; reconcile distinguishes consumed deadline from reset after clock changes. Native precision state is exposed by scheduler and last requested mode by diagnostics.
 
-- [ ] Write RED tests using current interfaces:12:43→13:00 for all intervals; interval2 after first13:00→15:00; late14:58 with hourly saved13:00→15:00; permission grant expects exact window0 and one stable deadline. Test half-hour silence, no eligible hour, DST and Kathmandu.
-- [ ] Run CI on tests-only reviewed commit; expected runtime assertion failures, not compilation failure. Record failure names/output before any production change.
-- [ ] Implement calendar slot calculation and scheduler advancement/reset. Quiet resumes at first allowed full hour; impossible window cancels schedule. Exact when permitted, otherwise approximate; preserve schema, data and one PendingIntent.
-- [ ] Add manifest special access and permission-grant receiver; reset phase only on timezone/time changes. Add explanatory settings action and actual scheduling mode. Bump0.2.5/code7.
+- [x] Write RED tests using current interfaces:12:43→13:00 for all intervals; interval2 after first13:00→15:00; late14:58 with hourly saved13:00→15:00 (including foreground reconciliation); permission grant expects exact window0 and one stable deadline. Test half-hour silence, no eligible hour, DST and Kathmandu.
+- [x] Run CI on tests-only reviewed commit; expected runtime assertion failures, not compilation failure. Record failure names/output before any production change.
+- [x] Implement calendar slot calculation and scheduler advancement/reset. Quiet resumes at first allowed full hour; impossible window cancels schedule. Exact when permitted, otherwise approximate; preserve schema, data and one PendingIntent.
+- [x] Add manifest special access and permission-grant receiver; reset phase only on timezone/time changes. Add explanatory settings action and actual scheduling mode. Bump0.2.5/code7.
 - [ ] Update existing tests for the intentionally changed cadence, add recurrence/permission/cancellation coverage; run full44+ regression suite, lint and APK in CI. Mutation-check the first-slot and no-drift assertions by confirming they failed against old production.
 - [ ] Independent whole-branch exact-head review, signing verification and artifact link. Record limitations and stop at HUMAN_TESTING; no merge.

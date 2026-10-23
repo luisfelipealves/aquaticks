@@ -5,6 +5,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ActivityNotFoundException
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -73,6 +75,8 @@ fun AquaTicksScreen(model: WaterViewModel) {
     val lifecycle = LocalLifecycleOwner.current
     var clockRevision by remember { mutableIntStateOf(0) }
     var notificationAllowed by remember { mutableStateOf(context.aquaApp.reminders.allowed()) }
+    var preciseAllowed by remember { mutableStateOf(context.aquaApp.reminders.preciseAllowed()) }
+    var preciseSettingsUnavailable by remember { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         notificationAllowed = granted
         model.update { it.copy(remindersEnabled = granted) }
@@ -83,6 +87,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
                 model.refresh()
                 clockRevision++
                 notificationAllowed = context.aquaApp.reminders.allowed()
+                preciseAllowed = context.aquaApp.reminders.preciseAllowed()
             }
         }
         lifecycle.lifecycle.addObserver(observer)
@@ -173,6 +178,20 @@ fun AquaTicksScreen(model: WaterViewModel) {
                                 .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
                         }
                         Action("A cada ${settings.intervalHours} h") { screen = "interval" }
+                        Text("Começa na próxima hora cheia.", color = Gray, fontSize = 13.sp,
+                            textAlign = TextAlign.Center)
+                        Text(if (preciseAllowed) "Horário preciso: permitido" else
+                            "Horário aproximado: pode atrasar.", color = Gray,
+                            fontSize = 13.sp, textAlign = TextAlign.Center)
+                        if (Build.VERSION.SDK_INT >= 31 && !preciseAllowed) Action("Permitir horário preciso") {
+                            try {
+                                context.startActivity(Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                    Uri.parse("package:${context.packageName}")))
+                            } catch (_: ActivityNotFoundException) { preciseSettingsUnavailable = true }
+                        }
+                        if (preciseSettingsUnavailable) Text(
+                            "Abra as configurações do relógio para permitir alarmes precisos.",
+                            color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
                         Action("Estado dos lembretes") { screen = "reminderStatus" }
                         Action("Horário silencioso") { screen = "quiet" }
                         Action("Dose padrão: ${settings.defaultMl} ml") { screen = "dose" }
@@ -187,7 +206,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
                         val next = when {
                             !settings.remindersEnabled -> "Desligados"
                             !notificationAllowed -> "Notificações bloqueadas"
-                            diagnostic.scheduledAt == 0L -> "Sem horário solicitado"
+                            diagnostic.scheduledAt == 0L -> "Sem hora disponível fora do silêncio"
                             else -> time(diagnostic.scheduledAt)
                         }
                         for ((label, value) in listOf(
@@ -198,7 +217,10 @@ fun AquaTicksScreen(model: WaterViewModel) {
                             Text(label, color = Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
                             Text(value, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
                         }
-                        Text("O sistema pode atrasar o horário. Notificação criada não confirma exibição ou vibração.",
+                        Text(if (diagnostic.precise) "Agendamento preciso solicitado." else
+                            "Agendamento aproximado: o sistema pode atrasar.",
+                            color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Text("Notificação criada não confirma exibição ou vibração.",
                             color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
                     }
                     "interval" -> ScrollPage("interval") {

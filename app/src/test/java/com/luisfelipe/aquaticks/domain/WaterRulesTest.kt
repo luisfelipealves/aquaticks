@@ -28,7 +28,7 @@ class WaterRulesTest {
         assertFalse(WaterRules.quiet(local("2026-10-20T23:00"), true, 480, 480))
     }
     @Test fun reminderSkipsOvernightSilence() {
-        val now = local("2026-10-20T21:00").toInstant()
+        val now = local("2026-10-20T21:43").toInstant()
         assertEquals(local("2026-10-21T08:00").toInstant(),
             WaterRules.nextReminder(now, lisbon, 2, true, 1320, 480))
     }
@@ -37,11 +37,11 @@ class WaterRulesTest {
         assertEquals(local("2026-10-21T08:00").toInstant(),
             WaterRules.nextReminder(now, lisbon, 2, true, 1320, 480))
     }
-    @Test fun intervalsApplyWithoutSilence() {
+    @Test fun intervalAppliesFromPreviousScheduledTarget() {
         val now = Instant.parse("2026-10-20T12:00:00Z")
         for (hours in WaterRules.intervals)
             assertEquals(now.plusSeconds(hours * 3600L),
-                WaterRules.nextReminder(now, lisbon, hours, false, 1320, 480))
+                WaterRules.nextReminder(now, lisbon, hours, false, 1320, 480, previousTarget = now))
     }
     @Test(expected = IllegalArgumentException::class)
     fun invalidIntervalIsRejected() {

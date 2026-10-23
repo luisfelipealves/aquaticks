@@ -1,6 +1,7 @@
 package com.luisfelipe.aquaticks.reminders
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -41,7 +42,10 @@ class ReminderScheduler(private val context: Context, private val repository: Wa
         return granted && NotificationManagerCompat.from(context).areNotificationsEnabled() &&
             channel?.importance != NotificationManager.IMPORTANCE_NONE
     }
-    suspend fun reconcile(force: Boolean = false) = lock.withLock {
+    fun preciseAllowed(): Boolean = Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()
+
+    @SuppressLint("ScheduleExactAlarm") // Guarded by preciseAllowed, checked for every scheduling call.
+    suspend fun reconcile(force: Boolean = false, reset: Boolean = false) = lock.withLock {
         createChannel()
         val pending = PendingIntent.getBroadcast(context, 10,
             Intent(context, WaterActionReceiver::class.java).setAction(ACTION_REMIND),
@@ -60,22 +64,30 @@ class ReminderScheduler(private val context: Context, private val repository: Wa
             NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
         }
         val saved = Instant.ofEpochMilli(settings.nextReminderAt)
-        val savedIsUsable = settings.nextReminderAt > 0 &&
-            !WaterRules.quiet(saved.atZone(zone), settings.quietEnabled, settings.quietStart, settings.quietEnd)
-        val inQuietHours = WaterRules.quiet(now.atZone(zone), settings.quietEnabled,
-            settings.quietStart, settings.quietEnd)
-        // Preserve an overdue alarm until its receiver consumes it. Opening the app
-        // must not start another full interval while Android is delaying delivery.
-        val due = if (!force && savedIsUsable && (saved > now || !inQuietHours)) saved
+        val aligned = settings.nextReminderAt > 0 && WaterRules.isWholeHour(saved, zone)
+        val savedIsUsable = aligned && !WaterRules.quiet(saved.atZone(zone),
+            settings.quietEnabled, settings.quietStart, settings.quietEnd)
+        // Keep future calendar slots on refresh/reboot/permission changes. A late
+        // delivery advances from its requested slot, never from the delivery time.
+        val keep = !reset && savedIsUsable && (saved > now || (saved == now && !force))
+        val due = if (keep) saved
             else WaterRules.nextReminder(now, zone, settings.intervalHours,
-                settings.quietEnabled, settings.quietStart, settings.quietEnd)
-        if (settings.nextReminderAt != due.toEpochMilli()) {
-            repository.update { it.copy(nextReminderAt = due.toEpochMilli()) }
+                settings.quietEnabled, settings.quietStart, settings.quietEnd,
+                previousTarget = saved.takeIf { !reset && aligned })
+        val dueMillis = due?.toEpochMilli() ?: 0L
+        if (settings.nextReminderAt != dueMillis) {
+            repository.update { it.copy(nextReminderAt = dueMillis) }
         }
-        // One inexact alarm, eligible during Doze; no exact-alarm permission or service.
-        // Reusing the PendingIntent replaces the existing alarm instead of adding wakeups.
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, due.toEpochMilli(), pending)
-        ReminderDiagnostics(context).scheduled(due.toEpochMilli())
+        if (due == null) {
+            alarms.cancel(pending)
+            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+            ReminderDiagnostics(context).scheduled(0)
+            return@withLock
+        }
+        val precise = preciseAllowed()
+        if (precise) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueMillis, pending)
+        else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, dueMillis, pending)
+        ReminderDiagnostics(context).scheduled(dueMillis, precise)
     }
     companion object {
         const val CHANNEL = "water_reminders"
