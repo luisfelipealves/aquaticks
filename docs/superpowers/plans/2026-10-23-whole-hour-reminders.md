@@ -28,5 +28,7 @@
 - [x] Run CI on tests-only reviewed commit; expected runtime assertion failures, not compilation failure. Record failure names/output before any production change.
 - [x] Implement calendar slot calculation and scheduler advancement/reset. Quiet resumes at first allowed full hour; impossible window cancels schedule. Exact when permitted, otherwise approximate; preserve schema, data and one PendingIntent.
 - [x] Add manifest special access and permission-grant receiver; reset phase only on timezone/time changes. Add explanatory settings action and actual scheduling mode. Bump0.2.5/code7.
-- [ ] Update existing tests for the intentionally changed cadence, add recurrence/permission/cancellation coverage; run full44+ regression suite, lint and APK in CI. Mutation-check the first-slot and no-drift assertions by confirming they failed against old production.
+- [x] Update existing tests for the intentionally changed cadence, add recurrence/permission/cancellation coverage; run full44+ regression suite, lint and APK in CI. Mutation-check the first-slot and no-drift assertions by confirming they failed against old production.
 - [ ] Independent whole-branch exact-head review, signing verification and artifact link. Record limitations and stop at HUMAN_TESTING; no merge.
+
+Review correction: delayed recovery must replay quiet/DST calendar anchors before skipping old slots. Two additional regression tests failed in Actions40015573011 (61 total,2 expected failures); fixed by walking virtual slots without posting them. Final GREEN and exact-head review pending.

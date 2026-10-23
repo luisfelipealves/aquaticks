@@ -33,20 +33,24 @@ object WaterRules {
             ?.atZone(zone)?.toLocalDateTime()
         var candidate = previous?.plusHours(intervalHours.toLong())
             ?: localNow.truncatedTo(ChronoUnit.HOURS).plusHours(1)
-        if (candidate <= localNow) {
-            val missedHours = Duration.between(candidate, localNow).toHours()
-            candidate = candidate.plusHours((missedHours / intervalHours + 1) * intervalHours)
-        }
-        // Local calendar arithmetic skips a repeated DST hour. Gaps may resolve to a
-        // half hour in some zones; only accept an actual whole hour after resolution.
-        // Scan at most two days: some quiet windows leave no eligible whole hour.
-        repeat(48) {
+        // Replay calendar transitions without posting missed reminders. Skipping
+        // interval slots first would lose the phase established by silence or a DST gap.
+        // Normally this visits one slot; recovery visits only the elapsed schedule.
+        var excludedHours = 0
+        while (true) {
             val resolved = candidate.atZone(zone)
-            if (resolved.toInstant() > now && isWholeHour(resolved.toInstant(), zone) &&
-                !quiet(resolved, quietEnabled, start, end)) return resolved.toInstant()
-            candidate = candidate.plusHours(1)
+            if (isWholeHour(resolved.toInstant(), zone) &&
+                !quiet(resolved, quietEnabled, start, end)) {
+                if (resolved.toInstant() > now) return resolved.toInstant()
+                candidate = resolved.toLocalDateTime().plusHours(intervalHours.toLong())
+                excludedHours = 0
+            } else {
+                // A quiet window can leave no eligible whole hour. Bound that search
+                // to two days, including zones whose DST gap resolves to a half hour.
+                if (++excludedHours >= 48) return null
+                candidate = candidate.plusHours(1)
+            }
         }
-        return null
     }
     fun isWholeHour(time: Instant, zone: ZoneId): Boolean = time.atZone(zone).let {
         it.minute == 0 && it.second == 0 && it.nano == 0
