@@ -90,8 +90,10 @@ data. With ADB connected, collect only AquaTicks lines from `dumpsys alarm` and
 relevant errors from `logcat -d -v brief AndroidRuntime:E AquaTicks:E '*:S'`.
 The device/Doze delivery timing still requires a real-watch test. JVM tests exercise
 scheduling, cancellation/failure after rearming and the actual alarm PendingIntent to
-manifest receiver path (twice without starting an activity), not Samsung's power manager
-or a real process restart. If the next deadline is overdue but Última execução did not
+receiver/goAsync path (twice without starting an activity). Robolectric requires explicit
+registration of this receiver in the test harness; tests verify its manifest declaration
+separately. They do not verify Samsung's power manager, manifest cold startup or a real
+process restart. If the next deadline is overdue but Última execução did not
 advance, capture the alarm dump before reopening the app; if Notificação criada advanced,
 check watch notification/channel and Do Not Disturb settings instead of resetting data.
 

@@ -5,7 +5,11 @@ import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.ComponentName
+import android.content.IntentFilter
+import android.net.Uri
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import com.luisfelipe.aquaticks.AquaTicksApp
 import java.time.Instant
@@ -18,8 +22,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowSystemClock
-import java.time.Duration
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowBroadcastPendingResult
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = AquaTicksApp::class)
@@ -84,19 +89,18 @@ class WaterActionReceiverTest {
         assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
         assertEquals(0L, ReminderDiagnostics(app).snapshot().postedAt)
     }
-    @Test fun alarmPendingIntentRunsManifestReceiverTwiceWithoutOpeningActivity() = runBlocking {
+    @Test fun alarmPendingIntentRunsAsyncReceiverTwiceWithoutOpeningActivity() = runBlocking {
+        val info = app.packageManager.getReceiverInfo(ComponentName(app, WaterActionReceiver::class.java), 0)
+        assertFalse(info.exported)
+        // Robolectric does not auto-register manifest receivers without intent filters.
+        // Keep production's explicit-only receiver, register its real instance in the harness.
+        ContextCompat.registerReceiver(app, receiver, IntentFilter(ReminderScheduler.ACTION_REMIND),
+            ContextCompat.RECEIVER_NOT_EXPORTED)
         app.reminders.reconcile()
         var previousToken: String? = null
-        repeat(2) {
-            val previousFinish = ReminderDiagnostics(app).snapshot().finishedAt
-            ShadowSystemClock.advanceBy(Duration.ofSeconds(1))
+        try { repeat(2) {
             alarms.fireAlarm(alarms.scheduledAlarms.single())
-            withTimeout(5000) {
-                while (ReminderDiagnostics(app).snapshot().finishedAt <= previousFinish) {
-                    shadowOf(Looper.getMainLooper()).idle()
-                    delay(10)
-                }
-            }
+            awaitFinishedBroadcast()
             val diagnostic = ReminderDiagnostics(app).snapshot()
             assertTrue(diagnostic.receivedAt > 0)
             assertTrue(diagnostic.postedAt > 0)
@@ -109,7 +113,24 @@ class WaterActionReceiverTest {
             assertNotEquals(previousToken, token)
             previousToken = token
             assertNull(shadowOf(app).nextStartedActivity)
-        }
+        } } finally { app.unregisterReceiver(receiver) }
+    }
+    @Test fun asyncFailureStillFinishesBroadcastAndDoesNotRecordWater() = runBlocking {
+        ContextCompat.registerReceiver(app, receiver, IntentFilter(ReminderScheduler.ACTION_ADD),
+            ContextCompat.RECEIVER_NOT_EXPORTED)
+        try {
+            app.sendBroadcast(Intent(app, WaterActionReceiver::class.java)
+                .setAction(ReminderScheduler.ACTION_ADD)
+                .setData(Uri.parse("aquaticks://intake/invalid-amount"))
+                .putExtra("amount", 0))
+            awaitFinishedBroadcast()
+            assertEquals(0, app.repository.snapshot().totalMl)
+        } finally { app.unregisterReceiver(receiver) }
+    }
+    private fun awaitFinishedBroadcast() {
+        shadowOf(Looper.getMainLooper()).idle()
+        val pending = requireNotNull(shadowOf(receiver).originalPendingResult)
+        Shadow.extract<ShadowBroadcastPendingResult>(pending).future.get(5, TimeUnit.SECONDS)
     }
     @Test fun notificationActionRegistersDefaultAmountOnce() = runBlocking {
         receiver.processAction(app, reminder())
