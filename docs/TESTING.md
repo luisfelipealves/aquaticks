@@ -64,7 +64,12 @@ and reminders again. Otherwise preserve the data and stop before uninstalling.
 - Test an interval while awake. Delivery is inexact and may be delayed by Android/Doze.
 - With reminders allowed and enabled, wait outside quiet hours with the screen off.
   Reopening the app after a missed deadline must not start another full interval.
-  Version 0.2.2 uses an inexact idle-capable alarm; Android can still batch delivery.
+  The alarm is inexact and idle-capable; Android can still batch delivery.
+  On 0.2.4+, repeat for at least two intervals without opening AquaTicks between them,
+  including leaving the first notification unacknowledged. Each new reminder may alert.
+  In Configurações > Estado dos lembretes, note Próximo previsto, Última execução,
+  Notificação criada and Última falha. They are a fixed-size local diagnostic snapshot;
+  creation does not prove the watch displayed or vibrated the notification.
 - Verify no reminder appears during quiet hours, including a period crossing midnight.
 - Reject notification permission: tracking still works; UI shows how to allow notifications.
 - Add the Água Tile through the watch's Tile picker. It shows total and goal;
@@ -83,8 +88,12 @@ If no reminder arrives after the selected interval outside quiet hours, note the
 interval, quiet hours and watch notification/Do Not Disturb settings. Preserve app
 data. With ADB connected, collect only AquaTicks lines from `dumpsys alarm` and
 relevant errors from `logcat -d -v brief AndroidRuntime:E AquaTicks:E '*:S'`.
-The device/Doze delivery timing still requires a real-watch test; JVM tests exercise
-scheduling and the notification receiver processing, not Samsung's power manager.
+The device/Doze delivery timing still requires a real-watch test. JVM tests exercise
+scheduling, cancellation/failure after rearming and the actual alarm PendingIntent to
+manifest receiver path (twice without starting an activity), not Samsung's power manager
+or a real process restart. If the next deadline is overdue but Última execução did not
+advance, capture the alarm dump before reopening the app; if Notificação criada advanced,
+check watch notification/channel and Do Not Disturb settings instead of resetting data.
 
 ## History, doses and complication (second milestone)
 - Use Outra quantidade to add 100/200/250/300/500 ml without changing the default.

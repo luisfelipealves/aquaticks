@@ -49,9 +49,11 @@ import com.luisfelipe.aquaticks.aquaApp
 import com.luisfelipe.aquaticks.data.DaySnapshot
 import com.luisfelipe.aquaticks.data.Settings
 import com.luisfelipe.aquaticks.domain.WaterRules
+import com.luisfelipe.aquaticks.reminders.ReminderDiagnostics
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -171,8 +173,33 @@ fun AquaTicksScreen(model: WaterViewModel) {
                                 .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName))
                         }
                         Action("A cada ${settings.intervalHours} h") { screen = "interval" }
+                        Action("Estado dos lembretes") { screen = "reminderStatus" }
                         Action("Horário silencioso") { screen = "quiet" }
                         Action("Dose padrão: ${settings.defaultMl} ml") { screen = "dose" }
+                    }
+                    "reminderStatus" -> ScrollPage("reminderStatus") {
+                        PageTitle("Lembretes") { screen = "settings" }
+                        val diagnostic = remember(clockRevision) { ReminderDiagnostics(context).snapshot() }
+                        val settings = snapshot!!.settings
+                        val timeFormat = DateTimeFormatter.ofPattern("dd/MM HH:mm")
+                        fun time(at: Long) = if (at == 0L) "Ainda não" else
+                            Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).format(timeFormat)
+                        val next = when {
+                            !settings.remindersEnabled -> "Desligados"
+                            !notificationAllowed -> "Notificações bloqueadas"
+                            diagnostic.scheduledAt == 0L -> "Sem horário solicitado"
+                            else -> time(diagnostic.scheduledAt)
+                        }
+                        for ((label, value) in listOf(
+                            "Próximo previsto" to next,
+                            "Última execução" to time(diagnostic.receivedAt),
+                            "Notificação criada" to time(diagnostic.postedAt),
+                            "Última falha" to time(diagnostic.failedAt))) {
+                            Text(label, color = Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
+                            Text(value, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+                        }
+                        Text("O sistema pode atrasar o horário. Notificação criada não confirma exibição ou vibração.",
+                            color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
                     }
                     "interval" -> ScrollPage("interval") {
                         PageTitle("Intervalo") { screen = "settings" }

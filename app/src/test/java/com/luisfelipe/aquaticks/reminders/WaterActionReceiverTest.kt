@@ -5,11 +5,12 @@ import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Intent
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import com.luisfelipe.aquaticks.AquaTicksApp
 import java.time.Instant
 import java.time.ZonedDateTime
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -17,6 +18,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowSystemClock
+import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = AquaTicksApp::class)
@@ -46,12 +49,67 @@ class WaterActionReceiverTest {
         assertEquals(ReminderScheduler.CHANNEL, notification.channelId)
         assertNotNull(notification.contentIntent)
         assertEquals("+300 ml", notification.actions.single().title)
+        assertEquals(0, notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
         val due = app.repository.settings().nextReminderAt
         assertTrue(due >= before.plusSeconds(3600).toEpochMilli())
         assertTrue(due <= Instant.now().plusSeconds(3600).toEpochMilli())
         assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
         assertTrue(alarms.scheduledAlarms.single().isAllowWhileIdle)
         assertEquals(0, app.repository.snapshot().totalMl)
+    }
+    @Test fun nextAlarmIsArmedBeforeNotificationFailure() = runBlocking {
+        val failure = runCatching {
+            receiver.processAction(app, reminder()) { _, _ ->
+                assertEquals(1, alarms.scheduledAlarms.size)
+                throw IllegalStateException("Simulated notification failure")
+            }
+        }.exceptionOrNull()
+        assertTrue(failure is IllegalStateException)
+        assertTrue(app.repository.settings().nextReminderAt > Instant.now().toEpochMilli())
+        assertEquals(1, alarms.scheduledAlarms.size)
+        assertEquals(0L, ReminderDiagnostics(app).snapshot().postedAt)
+    }
+    @Test fun cancelledPostingDoesNotCancelTheNextAlarm() = runBlocking {
+        val task = launch {
+            val job = currentCoroutineContext().job
+            receiver.processAction(app, reminder()) { _, _ ->
+                job.cancel()
+                job.ensureActive()
+            }
+        }
+        task.join()
+        assertTrue(task.isCancelled)
+        val due = app.repository.settings().nextReminderAt
+        assertTrue(due > Instant.now().toEpochMilli())
+        assertEquals(due, alarms.scheduledAlarms.single().triggerAtTime)
+        assertEquals(0L, ReminderDiagnostics(app).snapshot().postedAt)
+    }
+    @Test fun alarmPendingIntentRunsManifestReceiverTwiceWithoutOpeningActivity() = runBlocking {
+        app.reminders.reconcile()
+        var previousToken: String? = null
+        repeat(2) {
+            val previousFinish = ReminderDiagnostics(app).snapshot().finishedAt
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(1))
+            alarms.fireAlarm(alarms.scheduledAlarms.single())
+            withTimeout(5000) {
+                while (ReminderDiagnostics(app).snapshot().finishedAt <= previousFinish) {
+                    shadowOf(Looper.getMainLooper()).idle()
+                    delay(10)
+                }
+            }
+            val diagnostic = ReminderDiagnostics(app).snapshot()
+            assertTrue(diagnostic.receivedAt > 0)
+            assertTrue(diagnostic.postedAt > 0)
+            assertEquals(0L, diagnostic.failedAt)
+            assertEquals(diagnostic.scheduledAt, alarms.scheduledAlarms.single().triggerAtTime)
+            assertTrue(diagnostic.scheduledAt > Instant.now().toEpochMilli())
+            val notification = requireNotNull(notifications.getNotification(ReminderScheduler.NOTIFICATION_ID))
+            assertEquals(0, notification.flags and Notification.FLAG_ONLY_ALERT_ONCE)
+            val token = shadowOf(notification.actions.single().actionIntent).savedIntent.dataString
+            assertNotEquals(previousToken, token)
+            previousToken = token
+            assertNull(shadowOf(app).nextStartedActivity)
+        }
     }
     @Test fun notificationActionRegistersDefaultAmountOnce() = runBlocking {
         receiver.processAction(app, reminder())

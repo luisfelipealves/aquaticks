@@ -50,6 +50,7 @@ class ReminderScheduler(private val context: Context, private val repository: Wa
         if (!settings.remindersEnabled || !allowed()) {
             alarms.cancel(pending)
             NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+            ReminderDiagnostics(context).scheduled(0)
             return@withLock
         }
         val now = clock.instant()
@@ -74,6 +75,7 @@ class ReminderScheduler(private val context: Context, private val repository: Wa
         // One inexact alarm, eligible during Doze; no exact-alarm permission or service.
         // Reusing the PendingIntent replaces the existing alarm instead of adding wakeups.
         alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, due.toEpochMilli(), pending)
+        ReminderDiagnostics(context).scheduled(due.toEpochMilli())
     }
     companion object {
         const val CHANNEL = "water_reminders"

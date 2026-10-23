@@ -24,6 +24,9 @@ Physical watch acceptance is still pending; main is intentionally not merged yet
 One Kotlin Android application module, with Wear Compose Material 3 and Room.
 Room stores settings as well as consumption events and daily-goal snapshots so updates stay atomic.
 No separate DataStore, dependency-injection framework or architecture boilerplate.
+Five local timestamps in SharedPreferences provide a fixed-size reminder diagnostic
+snapshot (last received/posted/finished/failed and next requested time). They contain
+no intake records, stay on the watch and are available under reminder settings.
 
 | Package | Responsibility |
 | --- | --- |
