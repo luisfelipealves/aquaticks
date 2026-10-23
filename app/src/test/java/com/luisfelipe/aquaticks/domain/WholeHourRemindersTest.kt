@@ -34,6 +34,22 @@ class WholeHourRemindersTest {
         assertEquals(local("2026-10-25T02:00"),
             WaterRules.nextReminder(firstOneOClock, lisbon, 1, false, 1320, 480))
     }
+    @Test fun delayedRecoveryKeepsTheQuietResumedCadence() {
+        val previous = local("2026-10-23T21:00")
+        val morning = WaterRules.nextReminder(previous, lisbon, 4, true, 1320, 480, previous)
+        val expected = WaterRules.nextReminder(morning!!, lisbon, 4, true, 1320, 480, morning)
+        assertEquals(local("2026-10-24T08:00"), morning)
+        assertEquals(local("2026-10-24T12:00"), expected)
+        assertEquals(expected, WaterRules.nextReminder(local("2026-10-24T09:00"),
+            lisbon, 4, true, 1320, 480, previous))
+    }
+    @Test fun delayedRecoveryKeepsTheSpringGapAdjustedCadence() {
+        val previous = local("2026-03-28T21:00")
+        val afterGap = WaterRules.nextReminder(previous, lisbon, 4, false, 1320, 480, previous)
+        assertEquals(local("2026-03-29T02:00"), afterGap)
+        assertEquals(local("2026-03-29T06:00"), WaterRules.nextReminder(
+            local("2026-03-29T03:00"), lisbon, 4, false, 1320, 480, previous))
+    }
     @Test fun fractionalOffsetZoneUsesItsLocalWholeHour() {
         val zone = ZoneId.of("Asia/Kathmandu")
         val now = LocalDateTime.parse("2026-10-23T12:43").atZone(zone).toInstant()
