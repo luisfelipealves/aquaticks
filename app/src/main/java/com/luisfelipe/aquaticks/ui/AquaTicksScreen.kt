@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ActivityNotFoundException
 import android.net.Uri
+import com.luisfelipe.aquaticks.complication.ComplicationDiagnostics
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -193,6 +194,7 @@ fun AquaTicksScreen(model: WaterViewModel) {
                             "Abra as configurações do relógio para permitir alarmes precisos.",
                             color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
                         Action("Estado dos lembretes") { screen = "reminderStatus" }
+                        Action("Estado da complication") { screen = "complicationStatus" }
                         Action("Horário silencioso") { screen = "quiet" }
                         Action("Dose padrão: ${settings.defaultMl} ml") { screen = "dose" }
                     }
@@ -222,6 +224,33 @@ fun AquaTicksScreen(model: WaterViewModel) {
                             color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
                         Text("Notificação criada não confirma exibição ou vibração.",
                             color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                    }
+                    "complicationStatus" -> ScrollPage("complicationStatus") {
+                        PageTitle("Complication") { screen = "settings" }
+                        val diagnostic = remember(clockRevision) { ComplicationDiagnostics(context).snapshot() }
+                        val format = DateTimeFormatter.ofPattern("dd/MM HH:mm:ss")
+                        fun time(at: Long) = if (at == 0L) "Ainda não" else
+                            Instant.ofEpochMilli(at).atZone(ZoneId.systemDefault()).format(format)
+                        val status = when (diagnostic.status) {
+                            "locked" -> "Aguardando desbloqueio"
+                            "ready" -> "Dados preparados"
+                            "failed" -> "Falha na leitura"
+                            "unsupported" -> "Tipo não suportado"
+                            else -> "Sem pedidos recebidos"
+                        }
+                        Text(status, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+                        for ((label, value) in listOf(
+                            "Última ativação" to time(diagnostic.activatedAt),
+                            "Última desativação" to time(diagnostic.deactivatedAt),
+                            "Último pedido" to time(diagnostic.requestedAt),
+                            "Resposta preparada" to time(diagnostic.responseAt),
+                            "Última falha" to time(diagnostic.failedAt))) {
+                            Text(label, color = Gray, fontSize = 13.sp, textAlign = TextAlign.Center)
+                            Text(value, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
+                        }
+                        Text("Eventos do sistema não confirmam a seleção nem a exibição no mostrador.",
+                            color = Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Action("Atualizar estado") { clockRevision++ }
                     }
                     "interval" -> ScrollPage("interval") {
                         PageTitle("Intervalo") { screen = "settings" }

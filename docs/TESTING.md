@@ -128,3 +128,26 @@ then capture its relevant errors without clearing any app data:
 
 Use the device whose status is `device` in `./adb devices`, including an mDNS name
 if the direct IP entry is offline. Share only the relevant AquaTicks exception.
+
+## Complication reboot test (0.2.6+)
+- Update in place, keep the current watch face and AquaTicks selection. Record some water.
+- Reboot, note the time, unlock if a PIN is configured and observe without opening AquaTicks.
+  Before first unlock a native NoData result is expected; the provider must not read Room.
+- Observe for one minute, then let the screen sleep and wake it. Note whether/when the
+  complication appears. Test the Samsung Clássico tradicional face/slot originally reported.
+- If blank, inspect the editor to distinguish an empty display from the provider changing
+  to None/another app. Record the selection before changing it.
+- Then open Configurações > Estado da complication and capture the latest activation,
+  deactivation, request, prepared response, failure and status. These are historical system
+  events, not evidence that a slot is currently selected or that a response was rendered.
+  A request may occur without an activation callback after reboot. Use Atualizar estado
+  to reread local evidence; this button does not force a watch-face update.
+- No new request after reboot points to an availability/host-selection question; a locked
+  response calls for testing first unlock; prepared data with a blank slot needs host/Binder
+  evidence. No single case proves the Samsung root cause. Preserve data and the original
+  face/slot while reporting it.
+
+JVM tests cover manifest directBootAware registration, both locked request types without
+creating the Room file, data after unlock and device-protected lifecycle evidence. They do
+not emulate Samsung's selection persistence or guarantee actual boot/Binder/render timing.
+No app can restore a user's watch-face slot selection through the data-source API alone.

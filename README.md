@@ -27,6 +27,10 @@ No separate DataStore, dependency-injection framework or architecture boilerplat
 Five local timestamps in SharedPreferences provide a fixed-size reminder diagnostic
 snapshot (last received/posted/finished/failed and next requested time). They contain
 no intake records, stay on the watch and are available under reminder settings.
+A separate fixed-size complication diagnostic keeps the latest activation, deactivation,
+request, prepared-response and failure times plus response status in device-protected
+storage. Hydration records remain only in credential-protected Room. The provider can
+answer during Direct Boot with native NoData and reads Room only after first unlock.
 
 | Package | Responsibility |
 | --- | --- |

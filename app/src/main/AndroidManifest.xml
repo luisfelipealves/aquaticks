@@ -34,7 +34,7 @@
         </service>
         <service android:name=".complication.WaterComplicationService"
             android:label="@string/app_name" android:icon="@drawable/ic_drop"
-            android:exported="true"
+            android:directBootAware="true" android:exported="true"
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/>

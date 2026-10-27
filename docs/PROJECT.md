@@ -52,3 +52,11 @@ local midnight, timezone travel and DST; persistence across database reopening;
 settings/goal persistence; quiet hours crossing midnight and same-day periods;
 quiet-period edges; disabled reminders; interval changes; schedule is always future.
 After MVP: history and complication data/timeline tests.
+
+## Complication startup
+The existing provider component remains stable and direct-boot aware. Before first unlock,
+it responds with native NoData and does not access Room or copy hydration into device
+storage. BOOT_COMPLETED recovery already requests fresh surface data after unlock.
+A fixed-size device-protected diagnostic exposes latest lifecycle/request/response status
+without consumption, instance IDs, active-slot inference or network. Samsung reboot/selection
+behavior remains a human test; source correctness does not prove a host defect is resolved.
