@@ -13,7 +13,7 @@ Keep application/provider IDs, supported types, Room v1, signer and reminder cod
 ## Review focus
 Locked cold start cannot access Room; unlocked process can serve real data without reselecting; error/cancellation handling must preserve coroutine semantics; diagnostics cannot claim selected state or expose intakes; old face rendering and actual reboot remain hardware tests.
 
-### Task1: boot-safe service and evidence
+### Task 1: boot-safe service and evidence
 - [ ] Add tests for direct-boot discovery, both supported locked request types without DB creation, unlocked recovery, and persisted lifecycle evidence. Observe expected assertions fail in Actions.
 - [ ] Mark existing service directBootAware; guard isUserUnlocked before repository access. Return native NoData timeline while locked. On read failure record status and return NoData; rethrow cancellation.
 - [ ] Record latest lifecycle/request/response/error in device-protected preferences; expose settings screen with honest labels, no selection inference.

@@ -30,7 +30,8 @@ class WaterComplicationBootTest {
             "android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST")
             .setPackage(app.packageName), PackageManager.MATCH_DIRECT_BOOT_AWARE)
         assertTrue("Provider must be available to locked-boot discovery",
-            matches.any { ComponentName(it.serviceInfo.packageName, it.serviceInfo.name) == component })
+            matches.any { ComponentName(it.serviceInfo.packageName, it.serviceInfo.name) == component &&
+                it.serviceInfo.directBootAware })
     }
     @Test fun lockedShortTextRequestDoesNotOpenCredentialDatabase() = verifyLocked(ComplicationType.SHORT_TEXT)
     @Test fun lockedRangedRequestDoesNotOpenCredentialDatabase() = verifyLocked(ComplicationType.RANGED_VALUE)
@@ -42,6 +43,9 @@ class WaterComplicationBootTest {
             assertTrue("Locked request must return no data, never a fabricated total",
                 timeline.defaultComplicationData is NoDataComplicationData)
             assertFalse("Room must stay unopened before first unlock", app.getDatabasePath("aquaticks.db").exists())
+            val evidence = app.createDeviceProtectedStorageContext()
+                .getSharedPreferences("complication_diagnostics", Context.MODE_PRIVATE)
+            assertEquals("locked", evidence.getString("status", null))
         } finally { controller.destroy() }
     }
     @Test fun unlockServesSavedConsumptionWithoutReselectingProvider() = runBlocking {
@@ -56,6 +60,9 @@ class WaterComplicationBootTest {
                 ComplicationRequest(1, ComplicationType.SHORT_TEXT, false)))
             val wire = TimelineEncoder.encode(timeline)
             assertEquals("250ml", wire.shortText!!.getTextAt(app.resources, System.currentTimeMillis()).toString())
+            val evidence = app.createDeviceProtectedStorageContext()
+                .getSharedPreferences("complication_diagnostics", Context.MODE_PRIVATE)
+            assertEquals("ready", evidence.getString("status", null))
         } finally { controller.destroy() }
     }
     @Test fun lifecycleEvidenceSurvivesServiceRecreationWithoutHydrationData() {
