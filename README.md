@@ -27,13 +27,13 @@ The single Kotlin app module separates `ui/`, `domain/`, `data/`, `reminders/`, 
 
 ## Build and try it
 
-Prerequisites: JDK 17, Android SDK 36 and a Wear OS 3+ watch or emulator. The exact tool versions are pinned in the Gradle files.
+Prerequisites: JDK 17, Android SDK 36, a compatible Gradle installation and a Wear OS 3+ watch or emulator. The branch does not currently commit a Gradle wrapper; consult its CI workflow for the Gradle setup used in cloud builds.
 
 ```bash
 git clone https://github.com/luisfelipealves/aquaticks.git
 cd aquaticks
 git switch agent/mvp
-./gradlew testDebugUnitTest lintDebug assembleDebug
+gradle testDebugUnitTest lintDebug assembleDebug
 ```
 
 Install `app/build/outputs/apk/debug/app-debug.apk` on the watch using `adb install -r`, or download the APK from a successful CI run. Follow [docs/TESTING.md](https://github.com/luisfelipealves/aquaticks/blob/agent/mvp/docs/TESTING.md) for pairing and physical validation.
