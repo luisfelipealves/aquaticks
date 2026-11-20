@@ -8,7 +8,13 @@
 
 Tap the progress ring to log the default 250 ml, or choose another amount. Set a daily goal, inspect history, use a quick-access Tile and add a progress complication to a compatible watch face. Reminders can use 1–4 hour intervals and quiet hours. They start at the next whole local hour. Data stays on the watch; there is no account, backend, analytics or network permission.
 
-**Screenshot:** A verified device capture is still needed. [Installation and watch testing guide](docs/TESTING.md).
+![AquaTicks progress ring on a Wear OS 4 emulator](assets/emulator-home.png)
+
+| Home | Actions |
+| --- | --- |
+| ![Hydration progress](assets/emulator-home.png) | ![Amount and history actions](assets/emulator-actions.png) |
+
+*Captured from the current Android build on a disposable Wear OS 4 emulator in CI, with an empty local database. A physical-watch photo is separate from these emulator captures. [Installation and watch testing guide](docs/TESTING.md).*
 
 ## Architecture
 

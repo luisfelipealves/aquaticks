@@ -1,0 +1,69 @@
+name: Portfolio screenshots (Wear OS emulator)
+on:
+  push:
+    branches: [docs/emulator-screenshots-20261120]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ANDROID_AVD_HOME: /tmp/aquaticks-avds
+      ANDROID_USER_HOME: /tmp/aquaticks-android
+      ANDROID_EMULATOR_HOME: /tmp/aquaticks-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install SDK and Wear OS emulator
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'emulator' 'system-images;android-33;android-wear;x86_64'
+      - name: Build with disposable emulator-only signing key
+        run: |
+          keytool -genkeypair -keystore debug.keystore -storetype JKS -alias androiddebugkey -storepass android -keypass android -dname "CN=Emulator Screenshot,O=Testing,C=US" -keyalg RSA -keysize 2048 -validity 1 -noprompt
+          gradle --no-daemon :app:assembleDebug
+          rm debug.keystore
+      - name: Capture running app
+        run: |
+          sudo chmod 666 /dev/kvm
+          mkdir -p "$ANDROID_AVD_HOME" "$ANDROID_USER_HOME" screenshots
+          echo no | avdmanager create avd -n wear -k 'system-images;android-33;android-wear;x86_64' --device wearos_large_round --path "$ANDROID_AVD_HOME/wear.avd"
+          "$ANDROID_HOME/emulator/emulator" -avd wear -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -accel on -cores 4 -memory 3072 > emulator.log 2>&1 &
+          timeout 240 adb wait-for-device
+          timeout 240 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = 1 ]; do sleep 2; done'
+          adb shell settings put global device_provisioned 1
+          adb shell settings put secure user_setup_complete 1
+          adb shell wm dismiss-keyguard
+          adb install -r app/build/outputs/apk/debug/app-debug.apk
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell input keyevent KEYCODE_MENU
+          adb shell am start -n com.luisfelipe.aquaticks/.MainActivity
+          sleep 35
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell am start -n com.luisfelipe.aquaticks/.MainActivity
+          sleep 5
+          adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" || true
+          adb shell uiautomator dump /sdcard/aquaticks-window.xml || true
+          adb shell cat /sdcard/aquaticks-window.xml | head -c 3000 || true
+          adb exec-out screencap -p > screenshots/aquaticks-home.png
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell input swipe 225 330 225 150 300
+          sleep 2
+          adb exec-out screencap -p > screenshots/aquaticks-actions.png
+          adb logcat -d -t 300 > screenshots/emulator-logcat.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aquaticks-emulator-screenshots
+          path: screenshots/*.png
+          if-no-files-found: error
