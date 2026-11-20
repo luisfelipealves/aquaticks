@@ -45,12 +45,22 @@ jobs:
           adb shell settings put secure user_setup_complete 1
           adb shell wm dismiss-keyguard
           adb install -r app/build/outputs/apk/debug/app-debug.apk
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell input keyevent KEYCODE_MENU
           adb shell am start -n com.luisfelipe.aquaticks/.MainActivity
-          sleep 8
+          sleep 35
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell am start -n com.luisfelipe.aquaticks/.MainActivity
+          sleep 5
+          adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" || true
+          adb shell uiautomator dump /sdcard/aquaticks-window.xml || true
+          adb shell cat /sdcard/aquaticks-window.xml | head -c 3000 || true
           adb exec-out screencap -p > screenshots/aquaticks-home.png
-          adb shell input tap 225 240
+          adb shell input keyevent KEYCODE_WAKEUP
+          adb shell input swipe 225 330 225 150 300
           sleep 2
-          adb exec-out screencap -p > screenshots/aquaticks-after-tap.png
+          adb exec-out screencap -p > screenshots/aquaticks-actions.png
+          adb logcat -d -t 300 > screenshots/emulator-logcat.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
