@@ -1,69 +1,44 @@
 # AquaTicks 💧
 
-A minimalist, offline water reminder and hydration tracker for Samsung Galaxy Watch / Wear OS 3+.
+**An offline hydration tracker and reminder for Wear OS, designed for a Samsung Galaxy Watch.**
 
-**Development branch:** [agent/mvp](https://github.com/luisfelipealves/aquaticks/tree/agent/mvp)  
-**Review:** [PR #1](https://github.com/luisfelipealves/aquaticks/pull/1)  
-**Cloud builds:** [Wear OS APK](https://github.com/luisfelipealves/aquaticks/actions/workflows/android.yml)
+**Source code:** this repository's `main` branch · [Implementation history](https://github.com/luisfelipealves/aquaticks/pull/1) · [CI builds](https://github.com/luisfelipealves/aquaticks/actions/workflows/android.yml)
 
-The MVP checkpoint passed 18 tests, lint and debug APK assembly in [run #7](https://github.com/luisfelipealves/aquaticks/actions/runs/39478249519).
-The full-feature checkpoint passed 24 tests, lint and APK assembly in [run #9](https://github.com/luisfelipealves/aquaticks/actions/runs/39479832595), including history, alternative amounts and a watch-face complication. Use the latest successful run on the PR for the final follow-up.
-Physical watch acceptance is still pending; main is intentionally not merged yet.
+## Experience
 
-## Features
-- Black background, blue progress ring, white/gray text and a water-drop icon.
-- Tap the large progress ring once to record the default 250 ml; other common amounts: 100/200/250/300/500 ml.
-- Adjustable daily goal, initially 2,000 ml; no medical recommendation or automatic goal.
-- Reminders every 1/2/3/4 hours, configurable quiet hours and a direct notification action.
-- Daily history, per-day goals, a simple time-of-day chart and individual records.
-- A progress Tile that immediately opens the quick-register screen.
-- SHORT_TEXT and RANGED_VALUE complication data with a drop icon.
-- Offline Room storage; no network permission, accounts, analytics, ads or backend.
+Tap the progress ring to log the default 250 ml, or choose another amount. Set a daily goal, inspect history, use a quick-access Tile and add a progress complication to a compatible watch face. Reminders can use 1–4 hour intervals and quiet hours. They start at the next whole local hour. Data stays on the watch; there is no account, backend, analytics or network permission.
 
-## Architecture and source layout
-One Kotlin Android application module, with Wear Compose Material 3 and Room.
-Room stores settings as well as consumption events and daily-goal snapshots so updates stay atomic.
-No separate DataStore, dependency-injection framework or architecture boilerplate.
-Five local timestamps in SharedPreferences provide a fixed-size reminder diagnostic
-snapshot (last received/posted/finished/failed and next requested time). They contain
-no intake records, stay on the watch and are available under reminder settings.
-A separate fixed-size complication diagnostic keeps the latest activation, deactivation,
-request, prepared-response and failure times plus response status in device-protected
-storage. Hydration records remain only in credential-protected Room. The provider can
-answer during Direct Boot with native NoData and reads Room only after first unlock.
+**Screenshot:** A verified device capture is still needed. [Installation and watch testing guide](docs/TESTING.md).
 
-| Package | Responsibility |
-| --- | --- |
-| `ui/` | Wear Compose screens, ViewModel and state |
-| `domain/` | Progress, local-day and quiet-hour rules |
-| `data/` | Room entities/DAO/database and transactional repository |
-| `reminders/` | One calendar alarm, notification channel/actions and system-change recovery |
-| `tile/` | Wear Tile provider and midnight timeline |
-| `complication/` | Short-text/ranged-value data source and midnight timeline |
-| `app/src/test/` | Rules, persistence and complication tests |
-| `.github/workflows/android.yml` | Java/Android setup, tests, lint, APK and report artifacts |
+## Architecture
 
-Each record keeps its UTC instant, original local date and timezone. Travel never reassigns
-old records to another day. Goals are captured per date. Reboots preserve data and re-register
-the reminder. There are no permanent services or background polling loops.
+```mermaid
+flowchart TD
+    A["Wear Compose UI / ViewModel"] --> B["Domain rules"]
+    A --> C["Room repository"]
+    D["AlarmManager + receivers"] --> C
+    E["Tile provider"] --> C
+    F["Complication provider"] --> C
+```
 
-## Obtain and install the APK
-Read [docs/TESTING.md](docs/TESTING.md) for Actions downloads and Wi-Fi ADB installation.
-No Android Studio or local compilation is required. The build uses JDK 17, Gradle 8.13,
-AGP 8.13.2, Kotlin 2.2.21 and Android SDK 36. Versions are pinned in Gradle files.
+The single Kotlin app module separates `ui/`, `domain/`, `data/`, `reminders/`, `tile/` and `complication/`. Room stores intake events, settings and daily goal snapshots. Records preserve their UTC instant, original local date and time zone. The reminder scheduler uses a single alarm with recovery on reboot or time changes; the complication responds safely before the first unlock.
 
-## Limitations
-- Reminders start at the next local whole hour, then follow the selected interval.
-  Native precise alarm access is separate from notification permission; without it,
-  scheduling is approximate and Android/Doze may delay delivery. Even precise alarms
-  do not guarantee a visible alert or vibration. Quiet hours and notification settings apply.
-- The Tile opens quick logging; it does not record solely because it is displayed/refreshed.
-- A complication's final appearance depends on the chosen watch face and slot.
-  Modern hosts can apply the supplied midnight timeline; older hosts may briefly show no
-  value until the next refresh rather than displaying yesterday's consumption.
-- No cloud backup/sync/export or phone companion. Uninstalling removes local data.
-- Debug builds are for testing; signing-key cache resets can prevent in-place updates.
-- Actual battery, haptics, accessibility and round-screen behavior still need watch testing.
+## Build and try it
 
-See [project decisions](docs/PROJECT.md), [validation](docs/VALIDATION.md) and
-[installation/testing](docs/TESTING.md).
+Prerequisites: JDK 17, Android SDK 36, a compatible Gradle installation and a Wear OS 3+ watch or emulator. The branch does not currently commit a Gradle wrapper; consult its CI workflow for the Gradle setup used in cloud builds.
+
+```bash
+git clone https://github.com/luisfelipealves/aquaticks.git
+cd aquaticks
+gradle testDebugUnitTest lintDebug assembleDebug
+```
+
+Install `app/build/outputs/apk/debug/app-debug.apk` on the watch using `adb install -r`, or download the APK from a successful CI run. Follow [docs/TESTING.md](https://github.com/luisfelipealves/aquaticks/blob/agent/mvp/docs/TESTING.md) for pairing and physical validation.
+
+## How we built it
+
+I chose the watch interactions and tested reminder timing, notifications and the complication on my device. The assistant helped turn those observations into focused specifications, implementation steps and regression tests. We iterated from the core tracker to history, Tile, complication and reminder recovery, using CI APKs for human acceptance. [Project decisions](https://github.com/luisfelipealves/aquaticks/blob/agent/mvp/docs/PROJECT.md) and [validation notes](https://github.com/luisfelipealves/aquaticks/blob/agent/mvp/docs/VALIDATION.md) capture the tradeoffs.
+
+## Status and portfolio snapshot
+
+The app has been used on a physical watch. Complication appearance after reboot can depend on watch-face host behavior and has shown a delay; physical acceptance is still separate from passing CI. **Highlights:** Kotlin, Wear Compose, Room, AlarmManager, Tile, complication and offline-first time modeling.
