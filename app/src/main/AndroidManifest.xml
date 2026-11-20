@@ -1,0 +1,47 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.hardware.type.watch" android:required="true"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <application android:name=".AquaTicksApp" android:label="@string/app_name"
+        android:icon="@drawable/ic_launcher" android:theme="@style/AppTheme"
+        android:allowBackup="false" android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="true">
+        <meta-data android:name="com.google.android.wearable.standalone" android:value="true"/>
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <receiver android:name=".reminders.WaterActionReceiver" android:exported="false"/>
+        <receiver android:name=".reminders.SystemChangeReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.TIME_SET"/>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+                <action android:name="android.intent.action.DATE_CHANGED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
+            </intent-filter>
+        </receiver>
+        <service android:name=".tile.WaterTileService" android:label="@string/tile_label"
+            android:description="@string/tile_description" android:icon="@drawable/ic_launcher"
+            android:exported="true" android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER"/></intent-filter>
+            <meta-data android:name="androidx.wear.tiles.PREVIEW" android:resource="@drawable/ic_launcher"/>
+        </service>
+        <service android:name=".complication.WaterComplicationService"
+            android:label="@string/app_name" android:icon="@drawable/ic_drop"
+            android:directBootAware="true" android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/>
+            </intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,RANGED_VALUE"/>
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="0"/>
+        </service>
+    </application>
+</manifest>
